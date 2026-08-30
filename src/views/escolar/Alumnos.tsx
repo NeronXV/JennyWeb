@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAppState } from '../../context/AppContext';
 import { 
   Plus, 
@@ -8,11 +8,16 @@ import {
   Search, 
   User, 
   Calendar, 
-  GraduationCap 
+  GraduationCap,
+  Download,
+  Trash2,
+  UploadCloud,
+  CheckCircle2
 } from 'lucide-react';
+import { downloadCSV } from '../../utils/exportUtils';
 
 export const Alumnos: React.FC = () => {
-  const { alumnos, addAlumno, navigateTo } = useAppState();
+  const { alumnos, addAlumno, deleteAlumno, navigateTo, grado, grupo } = useAppState();
   const [searchTerm, setSearchTerm] = useState('');
   
   // Modals state
@@ -20,12 +25,17 @@ export const Alumnos: React.FC = () => {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Add form state
   const [nombre, setNombre] = useState('');
   const [curp, setCurp] = useState('');
   const [sexo, setSexo] = useState<'M' | 'F'>('F');
   const [fechaNacimiento, setFechaNacimiento] = useState('2016-01-01');
+
+  // Import state
+  const [importStatus, setImportStatus] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Filter students based on search term
   const filteredAlumnos = alumnos.filter(al => 
@@ -38,12 +48,12 @@ export const Alumnos: React.FC = () => {
     if (!nombre.trim() || !curp.trim()) return;
 
     addAlumno({
-      nombre,
-      curp: curp.toUpperCase(),
+      nombre: nombre.trim(),
+      curp: curp.trim().toUpperCase(),
       sexo,
       fechaNacimiento,
-      grado: '5.º',
-      grupo: 'A'
+      grado: grado || '5.º',
+      grupo: grupo || 'A'
     });
 
     // Reset state & close modal
@@ -59,9 +69,88 @@ export const Alumnos: React.FC = () => {
     setDetailModalOpen(true);
   };
 
-  const handleImportSimulate = () => {
-    alert('Simulación: Se han cargado 5 alumnos ficticios desde un archivo de Excel.');
-    setImportModalOpen(false);
+  const handleExportListCSV = () => {
+    const headers = ['Nombre Completo', 'CURP', 'Sexo', 'Fecha de Nacimiento', 'Grado', 'Grupo', 'Promedio General', 'Asistencias', 'Faltas', 'Retardos'];
+    const rows = alumnos.map(al => [
+      al.nombre,
+      al.curp,
+      al.sexo,
+      al.fechaNacimiento,
+      al.grado,
+      al.grupo,
+      al.promedio,
+      al.asistenciasCount,
+      al.faltasCount,
+      al.retardosCount
+    ]);
+    downloadCSV(`Lista_Alumnos_${grado}_${grupo}`, headers, rows);
+  };
+
+  // Process Real CSV File
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+        if (lines.length < 2) {
+          alert('El archivo no contiene suficientes registros.');
+          return;
+        }
+
+        let importedCount = 0;
+        // Skip header line
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',').map(c => c.trim().replace(/^["']|["']$/g, ''));
+          if (cols.length >= 2 && cols[0]) {
+            const nom = cols[0];
+            const curpVal = cols[1] || 'CURP' + Math.floor(Math.random() * 100000);
+            const sexVal = (cols[2]?.toUpperCase() === 'M' ? 'M' : 'F') as 'M' | 'F';
+            const birthVal = cols[3] || '2016-01-01';
+
+            addAlumno({
+              nombre: nom,
+              curp: curpVal.toUpperCase(),
+              sexo: sexVal,
+              fechaNacimiento: birthVal,
+              grado: grado || '5.º',
+              grupo: grupo || 'A'
+            });
+            importedCount++;
+          }
+        }
+
+        setImportStatus(`¡Se importaron ${importedCount} alumnos exitosamente!`);
+        setTimeout(() => {
+          setImportStatus(null);
+          setImportModalOpen(false);
+        }, 1500);
+      } catch (err) {
+        alert('Error al leer el archivo CSV. Verifica su formato.');
+      }
+    };
+    reader.readAsText(file, 'UTF-8');
+  };
+
+  const handleDownloadSampleCSV = () => {
+    const headers = ['Nombre Completo', 'CURP', 'Sexo (M/F)', 'Fecha Nacimiento (AAAA-MM-DD)'];
+    const rows = [
+      ['Gabriela Morales Salas', 'MOSG160315MDFRRN01', 'F', '2016-03-15'],
+      ['Fernando Rios Mendoza', 'RIMF160720HDFRRN02', 'M', '2016-07-20'],
+      ['Lucía Navarro Soto', 'NASL161109MDFRRN03', 'F', '2016-11-09']
+    ];
+    downloadCSV('Plantilla_Ejemplo_Alumnos', headers, rows);
+  };
+
+  const handleDelete = (id: string) => {
+    if (deleteAlumno) {
+      deleteAlumno(id);
+    }
+    setDeleteConfirmId(null);
+    setDetailModalOpen(false);
   };
 
   return (
@@ -84,17 +173,25 @@ export const Alumnos: React.FC = () => {
         </div>
 
         {/* Buttons */}
-        <div className="flex w-full sm:w-auto gap-3">
+        <div className="flex flex-wrap w-full sm:w-auto gap-3">
+          <button
+            onClick={handleExportListCSV}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-cream-100 hover:bg-cream-200 text-grayblue-700 font-bold py-2.5 px-4 rounded-xl text-xs transition-colors border border-cream-300 cursor-pointer"
+            title="Exportar listado a Excel"
+          >
+            <Download className="h-4 w-4 text-emerald-600" />
+            <span>Exportar Excel</span>
+          </button>
           <button
             onClick={() => setImportModalOpen(true)}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-cream-100 hover:bg-cream-200 text-grayblue-700 font-semibold py-2.5 px-4 rounded-xl text-sm transition-colors border border-cream-300 cursor-pointer"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-cream-100 hover:bg-cream-200 text-grayblue-700 font-bold py-2.5 px-4 rounded-xl text-xs transition-colors border border-cream-300 cursor-pointer"
           >
-            <FileSpreadsheet className="h-4 w-4" />
-            <span>Importar Excel</span>
+            <FileSpreadsheet className="h-4 w-4 text-sage-600" />
+            <span>Importar CSV / Excel</span>
           </button>
           <button
             onClick={() => setAddModalOpen(true)}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-sage-500 hover:bg-sage-600 text-white font-semibold py-2.5 px-4 rounded-xl text-sm transition-colors shadow-sm shadow-sage-200 cursor-pointer"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-sage-500 hover:bg-sage-600 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-colors shadow-sm shadow-sage-200 cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             <span>Agregar alumno</span>
@@ -162,19 +259,26 @@ export const Alumnos: React.FC = () => {
                       {Math.round((al.asistenciasCount / (al.asistenciasCount + al.faltasCount)) * 100)}%
                     </td>
                     <td className="py-4 px-6 text-center" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-center gap-2">
+                      <div className="flex justify-center items-center gap-2">
                         <button
                           onClick={() => openDetails(al)}
-                          className="p-1.5 hover:bg-cream-100 rounded-lg text-sage-500 hover:text-sage-700 transition-colors"
+                          className="p-1.5 hover:bg-cream-100 rounded-lg text-sage-500 hover:text-sage-700 transition-colors cursor-pointer"
                           title="Ver Ficha Rápida"
                         >
                           <Eye className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => navigateTo('escolar-concentrado', { studentId: al.id })}
-                          className="px-2.5 py-1 hover:bg-sage-50 text-sage-600 font-bold text-xs rounded-lg transition-colors border border-sage-100"
+                          className="px-2.5 py-1 hover:bg-sage-50 text-sage-600 font-bold text-xs rounded-lg transition-colors border border-sage-100 cursor-pointer"
                         >
                           Ficha Completa
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirmId(al.id)}
+                          className="p-1.5 hover:bg-rose-50 rounded-lg text-rose-400 hover:text-rose-600 transition-colors cursor-pointer"
+                          title="Eliminar Alumno"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
@@ -267,13 +371,13 @@ export const Alumnos: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setAddModalOpen(false)}
-                  className="flex-1 py-3 bg-cream-100 hover:bg-cream-200 rounded-xl font-bold text-sm text-grayblue-700"
+                  className="flex-1 py-3 bg-cream-100 hover:bg-cream-200 rounded-xl font-bold text-sm text-grayblue-700 cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 bg-sage-500 hover:bg-sage-600 rounded-xl font-bold text-sm text-white shadow-sm shadow-sage-200"
+                  className="flex-1 py-3 bg-sage-500 hover:bg-sage-600 rounded-xl font-bold text-sm text-white shadow-sm shadow-sage-200 cursor-pointer"
                 >
                   Guardar Alumno
                 </button>
@@ -283,7 +387,7 @@ export const Alumnos: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: IMPORTAR DESDE EXCEL */}
+      {/* MODAL: IMPORTAR DESDE CSV/EXCEL */}
       {importModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/45 backdrop-blur-xs" onClick={() => setImportModalOpen(false)} />
@@ -291,7 +395,7 @@ export const Alumnos: React.FC = () => {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-grayblue-900 flex items-center gap-2">
                 <FileSpreadsheet className="h-5 w-5 text-emerald-500" />
-                Importar desde Excel
+                Importar Alumnos desde CSV
               </h3>
               <button 
                 onClick={() => setImportModalOpen(false)}
@@ -301,31 +405,83 @@ export const Alumnos: React.FC = () => {
               </button>
             </div>
 
-            <div className="space-y-6 text-center py-4">
-              <div className="border-2 border-dashed border-cream-300 hover:border-sage-400 transition-colors rounded-2xl p-8 flex flex-col items-center gap-2 cursor-pointer bg-cream-50/50">
-                <FileSpreadsheet className="h-10 w-10 text-emerald-500" />
-                <span className="text-sm font-semibold text-grayblue-900">Arrastra tu archivo aquí</span>
-                <span className="text-xs text-grayblue-400">Formatos soportados: .xlsx, .xls, .csv</span>
-              </div>
-              
-              <div className="text-xs text-grayblue-400 text-left leading-relaxed">
-                💡 Asegúrate de que el documento contenga las columnas: **Nombre completo, CURP, Sexo (M/F), Fecha de Nacimiento (YYYY-MM-DD)**.
+            <div className="space-y-4 text-center py-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-cream-300 hover:border-emerald-500 transition-all rounded-2xl p-6 flex flex-col items-center gap-2 cursor-pointer bg-cream-50/50 hover:bg-emerald-50/20"
+              >
+                <UploadCloud className="h-10 w-10 text-emerald-500" />
+                <span className="text-sm font-bold text-grayblue-900">Haz clic para seleccionar archivo CSV</span>
+                <span className="text-xs text-grayblue-400">Compatible con archivos exportados de Excel (.csv)</span>
               </div>
 
-              <div className="flex gap-3">
+              {importStatus && (
+                <div className="bg-emerald-50 text-emerald-700 p-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border border-emerald-200 animate-fade-in">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <span>{importStatus}</span>
+                </div>
+              )}
+              
+              <div className="text-xs text-grayblue-500 text-left bg-cream-50 p-3 rounded-xl border border-cream-200 leading-relaxed">
+                💡 <b>Estructura esperada de columnas:</b><br />
+                <span className="font-mono text-[11px] text-grayblue-700">Nombre, CURP, Sexo (F/M), Nacimiento (AAAA-MM-DD)</span>
+              </div>
+
+              <div className="flex gap-3 pt-2">
                 <button
-                  onClick={() => setImportModalOpen(false)}
-                  className="flex-1 py-3 bg-cream-100 hover:bg-cream-200 rounded-xl font-bold text-sm text-grayblue-700"
+                  type="button"
+                  onClick={handleDownloadSampleCSV}
+                  className="flex-1 py-2.5 bg-cream-100 hover:bg-cream-200 text-grayblue-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer border border-cream-300"
                 >
-                  Cancelar
+                  <Download className="h-3.5 w-3.5" />
+                  Descargar Plantilla
                 </button>
                 <button
-                  onClick={handleImportSimulate}
-                  className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm rounded-xl"
+                  type="button"
+                  onClick={() => setImportModalOpen(false)}
+                  className="flex-1 py-2.5 bg-white hover:bg-cream-100 text-grayblue-600 font-bold text-xs rounded-xl border border-cream-200 cursor-pointer"
                 >
-                  Subir y Procesar
+                  Cerrar
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRM DELETE MODAL */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/45 backdrop-blur-xs" onClick={() => setDeleteConfirmId(null)} />
+          <div className="relative bg-white border border-cream-200 rounded-3xl w-full max-w-sm p-6 shadow-xl z-10 text-center space-y-4">
+            <div className="inline-flex bg-rose-50 text-rose-500 p-3 rounded-2xl border border-rose-100">
+              <Trash2 className="h-6 w-6" />
+            </div>
+            <div>
+              <h4 className="text-lg font-bold text-grayblue-900">¿Eliminar alumno?</h4>
+              <p className="text-xs text-grayblue-400 mt-1">Se borrará de las listas y concentrados escolares.</p>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="flex-1 py-2.5 bg-cream-100 hover:bg-cream-200 rounded-xl font-bold text-xs text-grayblue-700 cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirmId)}
+                className="flex-1 py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold text-xs shadow-xs cursor-pointer"
+              >
+                Eliminar
+              </button>
             </div>
           </div>
         </div>
@@ -390,7 +546,7 @@ export const Alumnos: React.FC = () => {
               <div className="pt-2 flex gap-3">
                 <button
                   onClick={() => setDetailModalOpen(false)}
-                  className="flex-1 py-3 bg-cream-100 hover:bg-cream-200 rounded-xl font-bold text-sm text-grayblue-700"
+                  className="flex-1 py-3 bg-cream-100 hover:bg-cream-200 rounded-xl font-bold text-sm text-grayblue-700 cursor-pointer"
                 >
                   Cerrar
                 </button>
@@ -399,7 +555,7 @@ export const Alumnos: React.FC = () => {
                     setDetailModalOpen(false);
                     navigateTo('escolar-concentrado', { studentId: selectedStudent.id });
                   }}
-                  className="flex-1 py-3 bg-sage-500 hover:bg-sage-600 rounded-xl font-bold text-sm text-white shadow-sm"
+                  className="flex-1 py-3 bg-sage-500 hover:bg-sage-600 rounded-xl font-bold text-sm text-white shadow-sm cursor-pointer"
                 >
                   Ficha Detallada
                 </button>

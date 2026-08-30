@@ -5,11 +5,13 @@ import {
   Store, 
   FileText, 
   FileSpreadsheet, 
-  Tag 
+  Tag,
+  Download
 } from 'lucide-react';
+import { downloadCSV } from '../utils/exportUtils';
 
 export const Reportes: React.FC = () => {
-  const { alumnos, lotes, productos } = useAppState();
+  const { alumnos, lotes, productos, ventas, camposFormativos, trimestre, cicloEscolar } = useAppState();
   const [activeTab, setActiveTab] = useState<'escolar' | 'negocio'>('escolar');
 
   // Math aggregates: School
@@ -36,8 +38,59 @@ export const Reportes: React.FC = () => {
   const totalGarments = productos.length;
   const soldGarments = productos.filter(p => p.estado === 'Vendido').length;
 
-  const handleExport = (reportName: string, format: 'pdf' | 'excel') => {
-    alert(`Simulación: Reporte "${reportName}" exportado en formato ${format.toUpperCase()}.`);
+  const handleExportConcentrado = () => {
+    const headers = ['Nombre Alumno', 'CURP', 'Grado/Grupo', ...camposFormativos.map(c => c.nombre), 'Promedio General', 'Asistencia (%)'];
+    const rows = alumnos.map(al => {
+      const camposGrades = camposFormativos.map(c => {
+        const cal = al.calificaciones[c.id];
+        if (!cal) return '0';
+        const actAvg = cal.actividades.length > 0 ? cal.actividades.reduce((a, b) => a + b, 0) / cal.actividades.length : 0;
+        return actAvg.toFixed(1);
+      });
+      const attPct = Math.round((al.asistenciasCount / (al.asistenciasCount + al.faltasCount || 1)) * 100);
+      return [al.nombre, al.curp, `${al.grado} "${al.grupo}"`, ...camposGrades, al.promedio, `${attPct}%`];
+    });
+    downloadCSV(`Concentrado_Escolar_${cicloEscolar}_Trimestre_${trimestre}`, headers, rows);
+  };
+
+  const handleExportAsistencia = () => {
+    const headers = ['Nombre Alumno', 'CURP', 'Asistencias', 'Faltas', 'Retardos', 'Porcentaje Asistencia'];
+    const rows = alumnos.map(al => {
+      const tot = al.asistenciasCount + al.faltasCount;
+      const pct = tot > 0 ? Math.round((al.asistenciasCount / tot) * 100) : 100;
+      return [al.nombre, al.curp, al.asistenciasCount, al.faltasCount, al.retardosCount, `${pct}%`];
+    });
+    downloadCSV(`Bitacora_Asistencia_${cicloEscolar}`, headers, rows);
+  };
+
+  const handleExportBalance = () => {
+    const headers = ['Folio Venta', 'Fecha', 'Prenda / Producto', 'Cliente', 'Forma de Pago', 'Precio Cobrado ($)'];
+    const rows = ventas.map(v => {
+      const prod = productos.find(p => p.id === v.productoId);
+      return [
+        v.id,
+        v.fecha,
+        prod ? prod.descripcion : 'Producto desconocido',
+        v.cliente,
+        v.formaPago,
+        v.precioFinal
+      ];
+    });
+    downloadCSV('Balance_Ventas_Jenny', headers, rows);
+  };
+
+  const handleExportLotes = () => {
+    const headers = ['Lote', 'Fecha de Compra', 'Inversión ($)', 'Ventas Realizadas ($)', 'Ganancia Neta ($)', 'Prendas Restantes', 'Estado'];
+    const rows = lotes.map(l => [
+      l.nombre,
+      l.fecha,
+      l.inversion,
+      l.ventas,
+      l.ganancia,
+      l.productosRestantes,
+      l.estado
+    ]);
+    downloadCSV('Inventario_Lotes_Jenny', headers, rows);
   };
 
   return (
@@ -108,56 +161,55 @@ export const Reportes: React.FC = () => {
             {/* Export buttons list */}
             <div className="bg-white p-6 rounded-3xl border border-cream-200 shadow-xs space-y-3">
               <h4 className="text-xs font-bold text-grayblue-400 uppercase tracking-wider mb-2">
-                Descarga de Documentos
+                Descarga de Documentos (Excel / CSV)
               </h4>
               
               {/* Concentrado Trimestral export */}
-              <div className="p-3 bg-cream-50 rounded-2xl border border-cream-100/50 flex justify-between items-center">
-                <span className="text-xs font-bold text-grayblue-900">Concentrado Trimestral</span>
-                <div className="flex gap-1">
-                  <button 
-                    onClick={() => handleExport('Concentrado Trimestral', 'excel')}
-                    className="p-1.5 hover:bg-cream-200 rounded-lg text-emerald-600"
-                    title="Excel"
-                  >
-                    <FileSpreadsheet className="h-4 w-4" />
-                  </button>
-                  <button 
-                    onClick={() => handleExport('Concentrado Trimestral', 'pdf')}
-                    className="p-1.5 hover:bg-cream-200 rounded-lg text-sage-500"
-                    title="PDF"
-                  >
-                    <FileText className="h-4 w-4" />
-                  </button>
+              <div className="p-3.5 bg-cream-50 rounded-2xl border border-cream-200 flex justify-between items-center">
+                <div>
+                  <span className="text-xs font-bold text-grayblue-900 block">Concentrado Trimestral</span>
+                  <span className="text-[10px] text-grayblue-400 font-medium">Calificaciones por campo</span>
                 </div>
+                <button 
+                  onClick={handleExportConcentrado}
+                  className="flex items-center gap-1 bg-white hover:bg-cream-100 border border-cream-300 text-emerald-700 px-3 py-1.5 rounded-xl text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+                  title="Descargar Excel CSV"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>Excel</span>
+                </button>
               </div>
 
               {/* Registro Asistencia export */}
-              <div className="p-3 bg-cream-50 rounded-2xl border border-cream-100/50 flex justify-between items-center">
-                <span className="text-xs font-bold text-grayblue-900">Bitácora de Asistencia</span>
-                <div className="flex gap-1">
-                  <button 
-                    onClick={() => handleExport('Bitácora de Asistencia', 'excel')}
-                    className="p-1.5 hover:bg-cream-200 rounded-lg text-emerald-600"
-                    title="Excel"
-                  >
-                    <FileSpreadsheet className="h-4 w-4" />
-                  </button>
-                  <button 
-                    onClick={() => handleExport('Bitácora de Asistencia', 'pdf')}
-                    className="p-1.5 hover:bg-cream-200 rounded-lg text-sage-500"
-                    title="PDF"
-                  >
-                    <FileText className="h-4 w-4" />
-                  </button>
+              <div className="p-3.5 bg-cream-50 rounded-2xl border border-cream-200 flex justify-between items-center">
+                <div>
+                  <span className="text-xs font-bold text-grayblue-900 block">Bitácora de Asistencia</span>
+                  <span className="text-[10px] text-grayblue-400 font-medium">Asistencias, faltas y %</span>
                 </div>
+                <button 
+                  onClick={handleExportAsistencia}
+                  className="flex items-center gap-1 bg-white hover:bg-cream-100 border border-cream-300 text-emerald-700 px-3 py-1.5 rounded-xl text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+                  title="Descargar Excel CSV"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>Excel</span>
+                </button>
               </div>
             </div>
           </div>
 
           {/* Student average listings */}
           <div className="md:col-span-2 bg-white p-6 rounded-3xl border border-cream-200 shadow-xs space-y-4">
-            <h4 className="text-sm font-bold text-grayblue-900">Lista General de Promedios</h4>
+            <div className="flex justify-between items-center">
+              <h4 className="text-sm font-bold text-grayblue-900">Lista General de Promedios</h4>
+              <button
+                onClick={handleExportConcentrado}
+                className="text-xs font-bold text-sage-600 hover:text-sage-700 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Descargar tabla completa
+              </button>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -173,7 +225,7 @@ export const Reportes: React.FC = () => {
                   {alumnos.map((al) => (
                     <tr key={al.id} className="hover:bg-cream-50/50 transition-colors">
                       <td className="py-3 px-4 font-bold text-grayblue-900">{al.nombre}</td>
-                      <td className="py-3 px-4 text-center text-grayblue-500 font-semibold">1.º</td>
+                      <td className="py-3 px-4 text-center text-grayblue-500 font-semibold">{trimestre}</td>
                       <td className="py-3 px-4 text-center text-emerald-600 font-semibold">{al.asistenciasCount}</td>
                       <td className="py-3 px-4 text-center text-rose-500 font-semibold">{al.faltasCount}</td>
                       <td className="py-3 px-4 text-right font-black text-sage-600 text-sm">{al.promedio}</td>
@@ -211,7 +263,7 @@ export const Reportes: React.FC = () => {
                 <div className="flex justify-between items-center text-sm font-medium">
                   <span className="text-grayblue-500">Prendas Vendidas:</span>
                   <span className="text-grayblue-950 font-bold">
-                    {soldGarments} de {totalGarments} ({Math.round((soldGarments / totalGarments) * 100)}%)
+                    {soldGarments} de {totalGarments} ({Math.round((soldGarments / (totalGarments || 1)) * 100)}%)
                   </span>
                 </div>
               </div>
@@ -220,56 +272,55 @@ export const Reportes: React.FC = () => {
             {/* Export documents */}
             <div className="bg-white p-6 rounded-3xl border border-cream-200 shadow-xs space-y-3">
               <h4 className="text-xs font-bold text-grayblue-400 uppercase tracking-wider mb-2">
-                Descarga de Documentos
+                Descarga de Documentos (Excel / CSV)
               </h4>
               
               {/* Balance General export */}
-              <div className="p-3 bg-cream-50 rounded-2xl border border-cream-100/50 flex justify-between items-center">
-                <span className="text-xs font-bold text-grayblue-900">Balance General de Ventas</span>
-                <div className="flex gap-1">
-                  <button 
-                    onClick={() => handleExport('Balance de Ventas', 'excel')}
-                    className="p-1.5 hover:bg-cream-200 rounded-lg text-emerald-600"
-                    title="Excel"
-                  >
-                    <FileSpreadsheet className="h-4 w-4" />
-                  </button>
-                  <button 
-                    onClick={() => handleExport('Balance de Ventas', 'pdf')}
-                    className="p-1.5 hover:bg-cream-200 rounded-lg text-sage-500"
-                    title="PDF"
-                  >
-                    <FileText className="h-4 w-4" />
-                  </button>
+              <div className="p-3.5 bg-cream-50 rounded-2xl border border-cream-200 flex justify-between items-center">
+                <div>
+                  <span className="text-xs font-bold text-grayblue-900 block">Historial de Ventas</span>
+                  <span className="text-[10px] text-grayblue-400 font-medium">{ventas.length} ventas registradas</span>
                 </div>
+                <button 
+                  onClick={handleExportBalance}
+                  className="flex items-center gap-1 bg-white hover:bg-cream-100 border border-cream-300 text-emerald-700 px-3 py-1.5 rounded-xl text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+                  title="Descargar Excel CSV"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>Excel</span>
+                </button>
               </div>
 
               {/* Inventario export */}
-              <div className="p-3 bg-cream-50 rounded-2xl border border-cream-100/50 flex justify-between items-center">
-                <span className="text-xs font-bold text-grayblue-900">Inventario y Lotes</span>
-                <div className="flex gap-1">
-                  <button 
-                    onClick={() => handleExport('Inventario y Lotes', 'excel')}
-                    className="p-1.5 hover:bg-cream-200 rounded-lg text-emerald-600"
-                    title="Excel"
-                  >
-                    <FileSpreadsheet className="h-4 w-4" />
-                  </button>
-                  <button 
-                    onClick={() => handleExport('Inventario y Lotes', 'pdf')}
-                    className="p-1.5 hover:bg-cream-200 rounded-lg text-sage-500"
-                    title="PDF"
-                  >
-                    <FileText className="h-4 w-4" />
-                  </button>
+              <div className="p-3.5 bg-cream-50 rounded-2xl border border-cream-200 flex justify-between items-center">
+                <div>
+                  <span className="text-xs font-bold text-grayblue-900 block">Inventario y Lotes</span>
+                  <span className="text-[10px] text-grayblue-400 font-medium">Inversión y stock</span>
                 </div>
+                <button 
+                  onClick={handleExportLotes}
+                  className="flex items-center gap-1 bg-white hover:bg-cream-100 border border-cream-300 text-emerald-700 px-3 py-1.5 rounded-xl text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+                  title="Descargar Excel CSV"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>Excel</span>
+                </button>
               </div>
             </div>
           </div>
 
           {/* Batch performance breakdowns */}
           <div className="md:col-span-2 bg-white p-6 rounded-3xl border border-cream-200 shadow-xs space-y-4">
-            <h4 className="text-sm font-bold text-grayblue-900">Desempeño Financiero por Lote</h4>
+            <div className="flex justify-between items-center">
+              <h4 className="text-sm font-bold text-grayblue-900">Desempeño Financiero por Lote</h4>
+              <button
+                onClick={handleExportLotes}
+                className="text-xs font-bold text-terracotta-500 hover:text-terracotta-600 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Descargar reporte lotes
+              </button>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -288,7 +339,7 @@ export const Reportes: React.FC = () => {
                     return (
                       <tr key={lote.id} className="hover:bg-cream-50/50 transition-colors">
                         <td className="py-3.5 px-4 font-bold text-grayblue-900 flex items-center gap-2">
-                          <Tag className="h-3.5 w-3.5 text-terracotta-450 text-terracotta-400" />
+                          <Tag className="h-3.5 w-3.5 text-terracotta-400" />
                           {lote.nombre}
                         </td>
                         <td className="py-3.5 px-4 text-right text-grayblue-600 font-medium">

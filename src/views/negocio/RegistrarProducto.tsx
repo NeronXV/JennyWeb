@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAppState } from '../../context/AppContext';
-import { Camera, Sparkles } from 'lucide-react';
+import { Camera, Sparkles, UploadCloud, X, CheckCircle2 } from 'lucide-react';
+import { fileToBase64 } from '../../utils/exportUtils';
 
 export const RegistrarProducto: React.FC = () => {
   const { lotes, addProducto, navigateTo } = useAppState();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form State
   const [descripcion, setDescripcion] = useState('');
@@ -15,6 +17,7 @@ export const RegistrarProducto: React.FC = () => {
   const [loteId, setLoteId] = useState(lotes[0]?.id || '');
   const [notas, setNotas] = useState('');
   const [foto, setFoto] = useState<string | null>(null);
+  const [successToast, setSuccessToast] = useState(false);
 
   // Live calculations
   const parsedCosto = parseFloat(costo) || 0;
@@ -32,12 +35,24 @@ export const RegistrarProducto: React.FC = () => {
 
   const sizes = ['Única', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '30', '32', '34', 'Ajustable'];
 
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const base64 = await fileToBase64(file, 600, 0.85);
+      setFoto(base64);
+    } catch (err) {
+      alert('Error al procesar la fotografía.');
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!descripcion.trim() || !costo || !precio || !loteId) return;
 
     addProducto({
-      descripcion,
+      descripcion: descripcion.trim(),
       categoria,
       talla,
       costo: parsedCosto,
@@ -46,30 +61,34 @@ export const RegistrarProducto: React.FC = () => {
       loteId,
       notas,
       estado: 'Disponible',
-      foto: null
+      foto: foto
     });
 
-    // Notify success
-    alert('¡Producto agregado al inventario exitosamente!');
-    
-    // Clear form
-    setDescripcion('');
-    setCosto('');
-    setPrecio('');
-    setCantidad('1');
-    setNotas('');
-    navigateTo('negocio-inventario');
-  };
+    setSuccessToast(true);
 
-  const handleSimulatePhoto = () => {
-    // Simulate loading camera/image upload
-    alert('Simulación: Fotografía de la prenda cargada.');
-    setFoto('https://images.unsplash.com/photo-1543087903-1ac2ec7aa8c5?q=80&w=200&auto=format&fit=crop');
+    setTimeout(() => {
+      setDescripcion('');
+      setCosto('');
+      setPrecio('');
+      setCantidad('1');
+      setNotas('');
+      setFoto(null);
+      setSuccessToast(false);
+      navigateTo('negocio-inventario');
+    }, 1200);
   };
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       
+      {/* Toast */}
+      {successToast && (
+        <div className="fixed top-6 right-6 z-50 bg-emerald-600 text-white px-5 py-3.5 rounded-2xl shadow-xl flex items-center gap-3 animate-slide-in">
+          <CheckCircle2 className="h-5 w-5 shrink-0" />
+          <span className="font-bold text-sm">¡Prenda registrada exitosamente en el inventario!</span>
+        </div>
+      )}
+
       {/* Header Info */}
       <div className="bg-white p-6 rounded-2xl border border-cream-200 shadow-xs">
         <h3 className="text-xl font-bold text-grayblue-900 mb-1">Registrar Nueva Prenda / Artículo</h3>
@@ -86,14 +105,23 @@ export const RegistrarProducto: React.FC = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
-            {/* Foto uploader mock */}
+            {/* Foto uploader with Real File Input */}
             <div className="md:col-span-1 flex flex-col items-center justify-center">
               <span className="text-xs font-bold text-grayblue-500 uppercase block mb-2 text-center w-full">
-                Foto Prenda
+                Foto de la Prenda
               </span>
+              
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="hidden"
+              />
+
               <div 
-                onClick={handleSimulatePhoto}
-                className="w-40 h-48 border-2 border-dashed border-cream-300 hover:border-terracotta-400 bg-cream-50/50 hover:bg-cream-100/50 transition-all rounded-2xl flex flex-col items-center justify-center p-3 text-center cursor-pointer relative overflow-hidden"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-40 h-48 border-2 border-dashed border-cream-300 hover:border-terracotta-400 bg-cream-50/50 hover:bg-cream-100/50 transition-all rounded-2xl flex flex-col items-center justify-center p-3 text-center cursor-pointer relative overflow-hidden group"
               >
                 {foto ? (
                   <>
@@ -101,16 +129,19 @@ export const RegistrarProducto: React.FC = () => {
                     <button 
                       type="button" 
                       onClick={(e) => { e.stopPropagation(); setFoto(null); }}
-                      className="absolute bottom-2 right-2 bg-red-500 text-white p-1 rounded-full text-xs font-bold"
+                      className="absolute bottom-2 right-2 bg-rose-500 hover:bg-rose-600 text-white p-1.5 rounded-full text-xs font-bold shadow-md cursor-pointer"
+                      title="Eliminar foto"
                     >
-                      X
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   </>
                 ) : (
                   <>
-                    <Camera className="h-8 w-8 text-grayblue-400 mb-1.5" />
-                    <span className="text-xs font-bold text-grayblue-800 leading-tight">Tomar / Subir foto</span>
-                    <span className="text-[10px] text-grayblue-400 mt-1">Opcional</span>
+                    <div className="bg-cream-100 group-hover:bg-terracotta-50 p-3 rounded-full mb-2 text-grayblue-400 group-hover:text-terracotta-500 transition-colors">
+                      <Camera className="h-6 w-6" />
+                    </div>
+                    <span className="text-xs font-bold text-grayblue-800 leading-tight">Subir / Tomar foto</span>
+                    <span className="text-[10px] text-grayblue-400 mt-1">PNG, JPG, WebP</span>
                   </>
                 )}
               </div>
@@ -245,7 +276,7 @@ export const RegistrarProducto: React.FC = () => {
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
               className="w-full bg-cream-50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-sm text-grayblue-900 focus:outline-none focus:border-terracotta-400 focus:bg-white resize-none"
-              placeholder="Ej. Detalle en la bastilla, talla reducida..."
+              placeholder="Ej. Detalle en la bastilla, tela fresca, alta demanda..."
             />
           </div>
 
@@ -271,13 +302,13 @@ export const RegistrarProducto: React.FC = () => {
           <button
             type="button"
             onClick={() => navigateTo('negocio-dashboard')}
-            className="flex-1 py-3.5 bg-white hover:bg-cream-100 text-grayblue-700 font-bold rounded-xl text-sm transition-colors border border-cream-200"
+            className="flex-1 py-3.5 bg-white hover:bg-cream-100 text-grayblue-700 font-bold rounded-xl text-sm transition-colors border border-cream-200 cursor-pointer"
           >
             Cancelar
           </button>
           <button
             type="submit"
-            className="flex-1 py-3.5 bg-terracotta-500 hover:bg-terracotta-600 text-white font-bold rounded-xl text-sm transition-colors shadow-sm"
+            className="flex-1 py-3.5 bg-terracotta-500 hover:bg-terracotta-600 text-white font-bold rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
           >
             Agregar Producto
           </button>

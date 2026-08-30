@@ -1,14 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppState } from '../../context/AppContext';
 import { 
   FileText, 
   FileSpreadsheet, 
   User, 
-  Clock
+  Clock,
+  Printer,
+  X,
+  GraduationCap
 } from 'lucide-react';
+import { downloadCSV } from '../../utils/exportUtils';
 
 export const Concentrado: React.FC = () => {
-  const { selectedStudentId, alumnos, camposFormativos, porcentajes, trimestre } = useAppState();
+  const { selectedStudentId, alumnos, camposFormativos, porcentajes, trimestre, cicloEscolar } = useAppState();
+  const [printModalOpen, setPrintModalOpen] = useState(false);
 
   const studentId = selectedStudentId || 'a1';
   const student = alumnos.find(al => al.id === studentId) || alumnos[0];
@@ -45,16 +50,40 @@ export const Concentrado: React.FC = () => {
                    (examVal * (cfg.examen / 100));
     } else {
       const totalPct = cfg.actividades + cfg.tareas;
-      const normAct = (cfg.actividades / totalPct) * 100;
-      const normTar = (cfg.tareas / totalPct) * 100;
+      const normAct = totalPct > 0 ? (cfg.actividades / totalPct) * 100 : 50;
+      const normTar = totalPct > 0 ? (cfg.tareas / totalPct) * 100 : 50;
       finalGrade = (actAvg * (normAct / 100)) + (tarAvg * (normTar / 100));
     }
 
     return parseFloat(finalGrade.toFixed(1));
   };
 
-  const handleExport = (type: 'pdf' | 'excel') => {
-    alert(`Simulación: Reporte de ${student.nombre} exportado en formato ${type.toUpperCase()}.`);
+  const handleExportCSV = () => {
+    const headers = ['Campo Formativo', 'Promedio Actividades', 'Promedio Tareas', 'Examen', 'Calificación Trimestre'];
+    const rows = camposFormativos.map(campo => {
+      const cal = student.calificaciones[campo.id] || { actividades: [], tareas: [], examen: null };
+      const actAvg = cal.actividades.length > 0 ? (cal.actividades.reduce((a, b) => a + b, 0) / cal.actividades.length).toFixed(1) : '0';
+      const tarAvg = cal.tareas.length > 0 ? (cal.tareas.reduce((a, b) => a + b, 0) / cal.tareas.length).toFixed(1) : '0';
+      const grade = calculateFieldGrade(campo.id);
+      return [
+        campo.nombre,
+        actAvg,
+        tarAvg,
+        campo.tieneExamen ? (cal.examen !== null ? cal.examen : 'N/A') : 'Sin Examen',
+        grade
+      ];
+    });
+
+    // Add summary row
+    rows.push(['PROMEDIO GENERAL', '', '', '', student.promedio]);
+    rows.push(['ASISTENCIA (%)', '', '', '', `${Math.round((student.asistenciasCount / (student.asistenciasCount + student.faltasCount)) * 100)}%`]);
+
+    const sanitizedName = student.nombre.replace(/\s+/g, '_');
+    downloadCSV(`Boleta_${sanitizedName}_${trimestre}_Trimestre`, headers, rows);
+  };
+
+  const handlePrint = () => {
+    window.print();
   };
 
   return (
@@ -82,18 +111,18 @@ export const Concentrado: React.FC = () => {
         {/* Action export triggers */}
         <div className="flex w-full md:w-auto gap-3">
           <button
-            onClick={() => handleExport('excel')}
+            onClick={handleExportCSV}
             className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-cream-100 hover:bg-cream-200 text-grayblue-700 font-bold py-3 px-4 rounded-xl text-xs transition-colors border border-cream-300 cursor-pointer"
           >
-            <FileSpreadsheet className="h-4 w-4" />
-            <span>Exportar Excel</span>
+            <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+            <span>Exportar Excel (CSV)</span>
           </button>
           <button
-            onClick={() => handleExport('pdf')}
+            onClick={() => setPrintModalOpen(true)}
             className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-sage-500 hover:bg-sage-600 text-white font-bold py-3 px-4 rounded-xl text-xs transition-colors shadow-sm shadow-sage-200 cursor-pointer"
           >
             <FileText className="h-4 w-4" />
-            <span>Exportar PDF</span>
+            <span>Ver Boleta / Imprimir PDF</span>
           </button>
         </div>
       </div>
@@ -195,6 +224,112 @@ export const Concentrado: React.FC = () => {
         </div>
 
       </div>
+
+      {/* BOLETA MODAL / PRINTABLE FORMAT */}
+      {printModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-xs" onClick={() => setPrintModalOpen(false)} />
+          <div className="relative bg-white rounded-3xl w-full max-w-2xl p-6 md:p-8 shadow-2xl z-10 max-h-[90vh] overflow-y-auto animate-scale-in">
+            
+            {/* Modal actions bar */}
+            <div className="flex justify-between items-center pb-4 mb-4 border-b border-cream-200 print:hidden">
+              <span className="text-sm font-bold text-grayblue-500 flex items-center gap-2">
+                <Printer className="h-4 w-4 text-sage-500" />
+                Vista previa de Boleta Oficial
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePrint}
+                  className="flex items-center gap-1.5 bg-sage-500 hover:bg-sage-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs cursor-pointer"
+                >
+                  <Printer className="h-4 w-4" />
+                  Imprimir / PDF
+                </button>
+                <button
+                  onClick={() => setPrintModalOpen(false)}
+                  className="p-2 hover:bg-cream-100 rounded-xl text-grayblue-400 hover:text-grayblue-900"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Document Design */}
+            <div className="border-2 border-grayblue-800 p-6 rounded-2xl space-y-6 text-grayblue-900 bg-white">
+              {/* Header */}
+              <div className="text-center border-b-2 border-grayblue-800 pb-4">
+                <div className="flex items-center justify-center gap-2 text-sage-600 mb-1">
+                  <GraduationCap className="h-7 w-7" />
+                  <span className="font-extrabold text-xl uppercase tracking-wider text-grayblue-900">Sistema Escolar Jenny</span>
+                </div>
+                <h4 className="text-base font-bold uppercase text-grayblue-700">Informe de Evaluación del Aprendizaje</h4>
+                <p className="text-xs font-semibold text-grayblue-500">Ciclo Escolar: {cicloEscolar} | Periodo: {trimestre} Trimestre</p>
+              </div>
+
+              {/* Student Metadata */}
+              <div className="grid grid-cols-2 gap-2 text-xs bg-cream-50 p-4 rounded-xl border border-cream-200">
+                <div><span className="font-bold text-grayblue-600">Alumno:</span> <span className="font-black text-grayblue-900">{student.nombre}</span></div>
+                <div><span className="font-bold text-grayblue-600">CURP:</span> <span className="font-mono font-bold text-grayblue-900">{student.curp}</span></div>
+                <div><span className="font-bold text-grayblue-600">Grado y Grupo:</span> <span className="font-bold text-grayblue-900">{student.grado} "{student.grupo}"</span></div>
+                <div><span className="font-bold text-grayblue-600">Fecha de Nacimiento:</span> <span className="font-bold text-grayblue-900">{student.fechaNacimiento}</span></div>
+              </div>
+
+              {/* Grades Table */}
+              <table className="w-full text-xs border-collapse border border-grayblue-300">
+                <thead>
+                  <tr className="bg-cream-100 text-grayblue-900 font-bold border-b border-grayblue-300">
+                    <th className="p-2.5 text-left border-r border-grayblue-300">Campo Formativo</th>
+                    <th className="p-2.5 text-center border-r border-grayblue-300">Actividades</th>
+                    <th className="p-2.5 text-center border-r border-grayblue-300">Tareas</th>
+                    <th className="p-2.5 text-center border-r border-grayblue-300">Examen</th>
+                    <th className="p-2.5 text-center font-black">Calificación</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-grayblue-200">
+                  {camposFormativos.map(campo => {
+                    const grade = calculateFieldGrade(campo.id);
+                    const cal = student.calificaciones[campo.id] || { actividades: [], tareas: [], examen: null };
+                    const actAvg = cal.actividades.length > 0 ? (cal.actividades.reduce((a, b) => a + b, 0) / cal.actividades.length).toFixed(1) : '0';
+                    const tarAvg = cal.tareas.length > 0 ? (cal.tareas.reduce((a, b) => a + b, 0) / cal.tareas.length).toFixed(1) : '0';
+                    return (
+                      <tr key={campo.id}>
+                        <td className="p-2.5 font-bold border-r border-grayblue-300">{campo.nombre}</td>
+                        <td className="p-2.5 text-center border-r border-grayblue-300">{actAvg}</td>
+                        <td className="p-2.5 text-center border-r border-grayblue-300">{tarAvg}</td>
+                        <td className="p-2.5 text-center border-r border-grayblue-300">
+                          {campo.tieneExamen ? (cal.examen !== null ? cal.examen : '—') : 'N/A'}
+                        </td>
+                        <td className="p-2.5 text-center font-black text-sm">{grade}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="bg-cream-100 font-black border-t-2 border-grayblue-800 text-sm">
+                    <td colSpan={4} className="p-2.5 text-right border-r border-grayblue-300 uppercase">
+                      Promedio Trimestral General:
+                    </td>
+                    <td className="p-2.5 text-center text-sage-600 text-base">{student.promedio}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* Attendance and Signatures */}
+              <div className="grid grid-cols-2 gap-4 text-xs pt-4 border-t border-cream-200">
+                <div className="space-y-1">
+                  <span className="font-bold text-grayblue-700 block uppercase">Resumen de Asistencia</span>
+                  <p className="text-grayblue-600 font-medium">Asistencias: <b>{student.asistenciasCount}</b> | Faltas: <b>{student.faltasCount}</b> | Retardos: <b>{student.retardosCount}</b></p>
+                  <p className="text-grayblue-600 font-medium">Porcentaje de asistencia: <b>{Math.round((student.asistenciasCount / (student.asistenciasCount + student.faltasCount)) * 100)}%</b></p>
+                </div>
+                <div className="flex flex-col items-center justify-end">
+                  <div className="w-48 border-b-2 border-grayblue-400 mb-1"></div>
+                  <span className="font-bold text-grayblue-800 text-[11px]">Firma de la Docente / Directivo</span>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

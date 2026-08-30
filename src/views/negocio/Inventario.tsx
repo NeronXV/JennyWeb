@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAppState } from '../../context/AppContext';
-import { Search, Trash2, Tag, ShieldAlert } from 'lucide-react';
+import { Search, Trash2, Tag, ShieldAlert, Download, Image as ImageIcon } from 'lucide-react';
+import { downloadCSV } from '../../utils/exportUtils';
 
 export const Inventario: React.FC = () => {
   const { productos, lotes, eliminarProducto } = useAppState();
@@ -57,10 +58,25 @@ export const Inventario: React.FC = () => {
     if (deleteConfirmId) {
       const res = eliminarProducto(deleteConfirmId);
       if (res) {
-        // Success
         setDeleteConfirmId(null);
       }
     }
+  };
+
+  const handleExportCSV = () => {
+    const headers = ['Descripción', 'Categoría', 'Talla', 'Costo ($)', 'Precio Venta ($)', 'Ganancia Potencial ($)', 'Lote', 'Estado', 'Cantidad'];
+    const rows = filteredProducts.map(p => [
+      p.descripcion,
+      p.categoria,
+      p.talla,
+      p.costo,
+      p.precio,
+      p.precio - p.costo,
+      getLoteName(p.loteId),
+      p.estado,
+      p.cantidad
+    ]);
+    downloadCSV('Inventario_Prendas_Jenny', headers, rows);
   };
 
   return (
@@ -68,9 +84,19 @@ export const Inventario: React.FC = () => {
       
       {/* Filtering Control Bar */}
       <div className="bg-white p-6 rounded-2xl border border-cream-200 shadow-xs space-y-4">
-        <h3 className="text-xs font-bold text-grayblue-400 uppercase tracking-wider mb-2">
-          Buscadores e Inventario
-        </h3>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <h3 className="text-xs font-bold text-grayblue-400 uppercase tracking-wider">
+            Filtros y Búsqueda de Inventario ({filteredProducts.length} prendas)
+          </h3>
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 bg-cream-100 hover:bg-cream-200 text-grayblue-700 font-bold py-2 px-3.5 rounded-xl text-xs transition-colors border border-cream-300 cursor-pointer"
+          >
+            <Download className="h-4 w-4 text-emerald-600" />
+            <span>Exportar a Excel (CSV)</span>
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           
           {/* Search bar */}
@@ -80,7 +106,7 @@ export const Inventario: React.FC = () => {
             </span>
             <input
               type="text"
-              placeholder="Buscar prenda o palabra..."
+              placeholder="Buscar prenda..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-cream-50 border border-cream-200 rounded-xl text-sm focus:outline-none focus:border-terracotta-400 focus:bg-white"
@@ -138,7 +164,7 @@ export const Inventario: React.FC = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-cream-100/50 border-b border-cream-200 text-[11px] font-bold text-grayblue-400 uppercase tracking-wider">
-                <th className="py-4 px-6 min-w-[200px]">Prenda / Descripción</th>
+                <th className="py-4 px-6 min-w-[220px]">Prenda / Foto</th>
                 <th className="py-4 px-6">Categoría</th>
                 <th className="py-4 px-6 text-center">Talla</th>
                 <th className="py-4 px-6 text-right">Costo</th>
@@ -146,7 +172,7 @@ export const Inventario: React.FC = () => {
                 <th className="py-4 px-6 text-right">Ganancia Pot.</th>
                 <th className="py-4 px-6">Lote Origen</th>
                 <th className="py-4 px-6 text-center">Estado</th>
-                <th className="py-4 px-6 text-center">Eliminar</th>
+                <th className="py-4 px-6 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-cream-100 text-sm">
@@ -162,9 +188,15 @@ export const Inventario: React.FC = () => {
 
                   return (
                     <tr key={p.id} className="hover:bg-cream-50/50 transition-colors">
-                      <td className="py-4 px-6 font-bold text-grayblue-900 flex items-center gap-2">
-                        <Tag className="h-4 w-4 text-terracotta-400 shrink-0" />
-                        {p.descripcion}
+                      <td className="py-4 px-6 font-bold text-grayblue-900 flex items-center gap-3">
+                        {p.foto ? (
+                          <img src={p.foto} alt={p.descripcion} className="w-10 h-10 object-cover rounded-xl border border-cream-200 shrink-0" />
+                        ) : (
+                          <div className="w-10 h-10 bg-cream-100 text-terracotta-400 rounded-xl flex items-center justify-center shrink-0 border border-cream-200">
+                            <Tag className="h-5 w-5" />
+                          </div>
+                        )}
+                        <span className="leading-tight">{p.descripcion}</span>
                       </td>
                       <td className="py-4 px-6 text-grayblue-600 font-medium">{p.categoria}</td>
                       <td className="py-4 px-6 text-center font-bold text-grayblue-700">{p.talla}</td>
@@ -196,7 +228,7 @@ export const Inventario: React.FC = () => {
                           </button>
                         ) : (
                           <span className="text-[10px] text-grayblue-300 font-semibold italic">
-                            Bloqueado
+                            Vendido
                           </span>
                         )}
                       </td>

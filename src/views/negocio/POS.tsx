@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppState } from '../../context/AppContext';
-import { ShoppingBag, DollarSign, User, ShieldCheck } from 'lucide-react';
+import { ShoppingBag, DollarSign, User, ShieldCheck, Printer, X, CheckCircle2, Receipt, Tag } from 'lucide-react';
 
 export const POS: React.FC = () => {
   const { productos, registrarVenta } = useAppState();
@@ -13,9 +13,21 @@ export const POS: React.FC = () => {
   const [cliente, setCliente] = useState('');
   const [formaPago, setFormaPago] = useState<'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Pendiente'>('Efectivo');
   const [customPrice, setCustomPrice] = useState('');
+  
+  // Ticket Modal State
+  const [lastSaleReceipt, setLastSaleReceipt] = useState<{
+    id: string;
+    productName: string;
+    category: string;
+    size: string;
+    price: number;
+    client: string;
+    paymentMethod: string;
+    date: string;
+  } | null>(null);
 
   // Find currently selected product details
-  const selectedProduct = productos.find(p => p.id === selectedProductId);
+  const selectedProduct = productos.find(p => p.id === selectedProductId) || availableGarments[0];
 
   // Fallbacks and pricing variables
   const suggestPrice = selectedProduct?.precio || 0;
@@ -27,33 +39,39 @@ export const POS: React.FC = () => {
     e.preventDefault();
     if (!selectedProductId || !cliente.trim()) return;
 
+    const saleId = 'V-' + Math.floor(100000 + Math.random() * 900000);
+    const today = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
     registrarVenta({
       productoId: selectedProductId,
       precioFinal: finalPrice,
-      cliente,
+      cliente: cliente.trim(),
       formaPago
     });
 
-    // POS Success notification banner
-    const alertBox = document.createElement('div');
-    alertBox.className = 'fixed bottom-5 right-5 bg-terracotta-500 text-white py-3.5 px-6 rounded-2xl shadow-lg border border-terracotta-600 font-semibold text-sm z-50 flex items-center gap-2 animate-slide-in';
-    alertBox.innerHTML = `
-      <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-      <span>¡Venta de "${selectedProduct?.descripcion}" registrada con éxito!</span>
-    `;
-    document.body.appendChild(alertBox);
-
-    setTimeout(() => {
-      alertBox.classList.add('opacity-0', 'transition-opacity', 'duration-500');
-      setTimeout(() => alertBox.remove(), 500);
-    }, 3000);
+    // Save receipt for modal
+    if (selectedProduct) {
+      setLastSaleReceipt({
+        id: saleId,
+        productName: selectedProduct.descripcion,
+        category: selectedProduct.categoria,
+        size: selectedProduct.talla,
+        price: finalPrice,
+        client: cliente.trim(),
+        paymentMethod: formaPago,
+        date: today
+      });
+    }
 
     // Reset Form
     setCliente('');
     setCustomPrice('');
-    // Switch to next available if any
     const remaining = availableGarments.filter(p => p.id !== selectedProductId);
     setSelectedProductId(remaining[0]?.id || '');
+  };
+
+  const handlePrintTicket = () => {
+    window.print();
   };
 
   return (
@@ -89,9 +107,9 @@ export const POS: React.FC = () => {
                 value={selectedProductId}
                 onChange={(e) => {
                   setSelectedProductId(e.target.value);
-                  setCustomPrice(''); // Reset customizable pricing override
+                  setCustomPrice('');
                 }}
-                className="w-full bg-cream-50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-sm text-grayblue-900 focus:outline-none focus:border-terracotta-400 font-bold"
+                className="w-full bg-cream-50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-sm text-grayblue-900 focus:outline-none focus:border-terracotta-400 font-bold cursor-pointer"
               >
                 {availableGarments.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -100,6 +118,23 @@ export const POS: React.FC = () => {
                 ))}
               </select>
             </div>
+
+            {/* Selected Product Card Preview */}
+            {selectedProduct && (
+              <div className="flex items-center gap-4 p-3.5 bg-cream-50 rounded-2xl border border-cream-200">
+                {selectedProduct.foto ? (
+                  <img src={selectedProduct.foto} alt={selectedProduct.descripcion} className="w-14 h-14 object-cover rounded-xl border border-cream-300" />
+                ) : (
+                  <div className="w-14 h-14 bg-white text-terracotta-400 rounded-xl flex items-center justify-center border border-cream-200 shrink-0">
+                    <Tag className="h-6 w-6" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <span className="font-bold text-grayblue-900 text-sm block truncate">{selectedProduct.descripcion}</span>
+                  <span className="text-xs font-semibold text-grayblue-500">Categoría: {selectedProduct.categoria} | Talla: {selectedProduct.talla}</span>
+                </div>
+              </div>
+            )}
 
             {/* Client input */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -130,7 +165,7 @@ export const POS: React.FC = () => {
                 <select
                   value={formaPago}
                   onChange={(e) => setFormaPago(e.target.value as any)}
-                  className="w-full bg-cream-50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-sm text-grayblue-900 focus:outline-none focus:border-terracotta-400"
+                  className="w-full bg-cream-50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-sm text-grayblue-900 focus:outline-none focus:border-terracotta-400 cursor-pointer"
                 >
                   <option value="Efectivo">Efectivo</option>
                   <option value="Transferencia">Transferencia</option>
@@ -200,6 +235,77 @@ export const POS: React.FC = () => {
           </div>
 
         </form>
+      )}
+
+      {/* RECEIPT / TICKET MODAL */}
+      {lastSaleReceipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-xs" onClick={() => setLastSaleReceipt(null)} />
+          <div className="relative bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl z-10 animate-scale-in">
+            
+            <div className="flex justify-between items-center pb-3 border-b border-cream-200">
+              <span className="text-xs font-bold text-emerald-600 flex items-center gap-1.5">
+                <CheckCircle2 className="h-4 w-4" />
+                ¡Venta Registrada Exitosamente!
+              </span>
+              <button
+                onClick={() => setLastSaleReceipt(null)}
+                className="p-1 hover:bg-cream-100 rounded-lg text-grayblue-400 hover:text-grayblue-900"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Printable Ticket Receipt */}
+            <div className="my-4 p-4 border border-dashed border-grayblue-300 rounded-2xl bg-cream-50/50 font-mono text-xs space-y-3">
+              <div className="text-center border-b border-dashed border-grayblue-300 pb-2">
+                <p className="font-bold text-sm text-grayblue-900">BOUTIQUE JENNY</p>
+                <p className="text-[10px] text-grayblue-500">Ticket de Venta / Comprobante</p>
+                <p className="text-[10px] text-grayblue-400">Folio: {lastSaleReceipt.id}</p>
+                <p className="text-[10px] text-grayblue-400">{lastSaleReceipt.date}</p>
+              </div>
+
+              <div className="space-y-1 text-grayblue-800">
+                <p><span className="font-bold">Cliente:</span> {lastSaleReceipt.client}</p>
+                <p><span className="font-bold">Pago:</span> {lastSaleReceipt.paymentMethod}</p>
+              </div>
+
+              <div className="border-t border-b border-dashed border-grayblue-300 py-2 space-y-1">
+                <div className="flex justify-between font-bold text-grayblue-900">
+                  <span>1x {lastSaleReceipt.productName}</span>
+                  <span>${lastSaleReceipt.price.toLocaleString()}</span>
+                </div>
+                <p className="text-[10px] text-grayblue-500">Talla: {lastSaleReceipt.size} | {lastSaleReceipt.category}</p>
+              </div>
+
+              <div className="flex justify-between text-sm font-black text-grayblue-950 pt-1">
+                <span>TOTAL:</span>
+                <span>${lastSaleReceipt.price.toLocaleString()} MXN</span>
+              </div>
+
+              <div className="text-center pt-2 text-[9px] text-grayblue-400">
+                ¡Gracias por su preferencia!
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={handlePrintTicket}
+                className="flex-1 py-2.5 bg-terracotta-500 hover:bg-terracotta-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                Imprimir Ticket
+              </button>
+              <button
+                onClick={() => setLastSaleReceipt(null)}
+                className="py-2.5 px-4 bg-cream-100 hover:bg-cream-200 text-grayblue-700 font-bold text-xs rounded-xl cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
+
+          </div>
+        </div>
       )}
 
     </div>
