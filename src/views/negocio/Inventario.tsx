@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppState } from '../../context/AppContext';
-import { Search, Trash2, Tag, ShieldAlert, Download, Image as ImageIcon } from 'lucide-react';
+import { Search, Trash2, Tag, ShieldAlert, Download } from 'lucide-react';
 import { downloadCSV } from '../../utils/exportUtils';
 
 export const Inventario: React.FC = () => {

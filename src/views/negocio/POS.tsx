@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppState } from '../../context/AppContext';
-import { ShoppingBag, DollarSign, User, ShieldCheck, Printer, X, CheckCircle2, Receipt, Tag } from 'lucide-react';
+import { ShoppingBag, DollarSign, User, ShieldCheck, Printer, X, CheckCircle2, Tag } from 'lucide-react';
 
 export const POS: React.FC = () => {
   const { productos, registrarVenta } = useAppState();

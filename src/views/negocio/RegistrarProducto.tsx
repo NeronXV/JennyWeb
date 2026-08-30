@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useAppState } from '../../context/AppContext';
-import { Camera, Sparkles, UploadCloud, X, CheckCircle2 } from 'lucide-react';
+import { Camera, Sparkles, X, CheckCircle2 } from 'lucide-react';
 import { fileToBase64 } from '../../utils/exportUtils';
 
 export const RegistrarProducto: React.FC = () => {

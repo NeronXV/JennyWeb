@@ -3,8 +3,6 @@ import { useAppState } from '../context/AppContext';
 import { 
   GraduationCap, 
   Store, 
-  FileText, 
-  FileSpreadsheet, 
   Tag,
   Download
 } from 'lucide-react';
