@@ -1,4 +1,18 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import {
+  fetchAlumnosFromSupabase,
+  upsertAlumnoToSupabase,
+  deleteAlumnoFromSupabase,
+  fetchAsistenciasFromSupabase,
+  saveAsistenciaToSupabase,
+  fetchLotesFromSupabase,
+  upsertLoteToSupabase,
+  fetchProductosFromSupabase,
+  upsertProductoToSupabase,
+  deleteProductoFromSupabase,
+  fetchVentasFromSupabase,
+  insertVentaToSupabase
+} from '../services/supabaseService';
 
 // --- TYPES ---
 
@@ -16,9 +30,9 @@ export interface Alumno {
   retardosCount: number;
   calificaciones: {
     [campoId: string]: {
-      actividades: number[]; // Actividad 1, 2, 3
-      tareas: number[];      // Tareas list
-      examen: number | null; // Examen grade (or null if not applicable or not graded yet)
+      actividades: number[];
+      tareas: number[];
+      examen: number | null;
     };
   };
 }
@@ -39,7 +53,7 @@ export interface CampoFormativo {
 export interface PorcentajeConfig {
   actividades: number;
   tareas: number;
-  examen: number; // For campos without exam, this will be 0 and activities/tareas sum 100%
+  examen: number;
 }
 
 export interface Lote {
@@ -60,7 +74,7 @@ export interface Producto {
   talla: string;
   costo: number;
   precio: number;
-  cantidad: number; // Cantidad total inicial
+  cantidad: number;
   loteId: string;
   notas: string;
   estado: 'Disponible' | 'Vendido' | 'Apartado';
@@ -73,7 +87,7 @@ export interface Venta {
   precioFinal: number;
   cliente: string;
   formaPago: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Pendiente';
-  fecha: string; // YYYY-MM-DD
+  fecha: string;
 }
 
 export type ViewType = 
@@ -104,6 +118,10 @@ interface AppContextProps {
   navigateTo: (view: ViewType, options?: { studentId?: string; batchId?: string; campoId?: string }) => void;
   goBack: () => void;
 
+  // Cloud status
+  isCloudConnected: boolean;
+  isSyncing: boolean;
+
   // School Data
   alumnos: Alumno[];
   asistencia: AsistenciaRegistro[];
@@ -120,7 +138,7 @@ interface AppContextProps {
   setTrimestre: (val: string) => void;
   
   addAlumno: (alumno: Omit<Alumno, 'id' | 'promedio' | 'asistenciasCount' | 'faltasCount' | 'retardosCount' | 'calificaciones'>) => void;
-  deleteAlumno?: (id: string) => void;
+  deleteAlumno: (id: string) => void;
   saveAsistencia: (fecha: string, status: { [alumnoId: string]: AsistenciaStatus }) => void;
   updateCalificacion: (campoId: string, alumnoId: string, tipo: 'actividades' | 'tareas' | 'examen', index: number, value: number) => void;
   addColumnaCalificacion: (campoId: string, tipo: 'actividades' | 'tareas') => void;
@@ -430,7 +448,6 @@ const DEFAULT_VENTAS: Venta[] = [
   { id: 'v4', productoId: 'p15', precioFinal: 120, cliente: 'Lorena Gómez', formaPago: 'Efectivo', fecha: '2026-08-22' }
 ];
 
-// Helper to initialize state from localStorage
 function getStoredValue<T>(key: string, defaultValue: T): T {
   try {
     const item = localStorage.getItem(key);
@@ -460,6 +477,10 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [selectedCampoId, setSelectedCampoId] = useState<string | null>(() => 
     getStoredValue<string | null>('jenny_selected_campo', null)
   );
+
+  // Cloud State
+  const [isCloudConnected, setIsCloudConnected] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Filters
   const [cicloEscolar, setCicloEscolar] = useState<string>(() => 
@@ -498,8 +519,73 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     getStoredValue<Venta[]>('jenny_ventas', DEFAULT_VENTAS)
   );
 
-  // --- AUTOMATIC LOCALSTORAGE PERSISTENCE ---
+  // --- SUPABASE INITIAL LOAD & SYNC ---
+  useEffect(() => {
+    let isMounted = true;
+    async function loadCloudData() {
+      setIsSyncing(true);
+      try {
+        const [cloudAlumnos, cloudAsistencias, cloudLotes, cloudProductos, cloudVentas] = await Promise.all([
+          fetchAlumnosFromSupabase(),
+          fetchAsistenciasFromSupabase(),
+          fetchLotesFromSupabase(),
+          fetchProductosFromSupabase(),
+          fetchVentasFromSupabase()
+        ]);
 
+        if (!isMounted) return;
+
+        if (cloudAlumnos !== null || cloudLotes !== null) {
+          setIsCloudConnected(true);
+        }
+
+        // If Supabase has data, hydrate state with it
+        if (cloudAlumnos && cloudAlumnos.length > 0) {
+          setAlumnos(cloudAlumnos);
+        } else if (cloudAlumnos && cloudAlumnos.length === 0) {
+          // Table exists but is empty -> Seed initial alumnos to cloud
+          DEFAULT_ALUMNOS.forEach(a => upsertAlumnoToSupabase(a));
+        }
+
+        if (cloudAsistencias && cloudAsistencias.length > 0) {
+          setAsistencia(cloudAsistencias);
+        } else if (cloudAsistencias && cloudAsistencias.length === 0) {
+          DEFAULT_ASISTENCIA.forEach(as => saveAsistenciaToSupabase(as.fecha, as.status));
+        }
+
+        if (cloudLotes && cloudLotes.length > 0) {
+          setLotes(cloudLotes);
+        } else if (cloudLotes && cloudLotes.length === 0) {
+          DEFAULT_LOTES.forEach(l => upsertLoteToSupabase(l));
+        }
+
+        if (cloudProductos && cloudProductos.length > 0) {
+          setProductos(cloudProductos);
+        } else if (cloudProductos && cloudProductos.length === 0) {
+          DEFAULT_PRODUCTOS.forEach(p => upsertProductoToSupabase(p));
+        }
+
+        if (cloudVentas && cloudVentas.length > 0) {
+          setVentas(cloudVentas);
+        } else if (cloudVentas && cloudVentas.length === 0) {
+          DEFAULT_VENTAS.forEach(v => insertVentaToSupabase(v));
+        }
+
+      } catch (err) {
+        console.warn('Error connecting to Supabase cloud:', err);
+      } finally {
+        if (isMounted) setIsSyncing(false);
+      }
+    }
+
+    loadCloudData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // --- LOCALSTORAGE CACHE SYNC ---
   useEffect(() => {
     localStorage.setItem('jenny_current_view', JSON.stringify(currentView));
   }, [currentView]);
@@ -585,7 +671,6 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return counts > 0 ? parseFloat((sumTrimestres / counts).toFixed(2)) : 0;
   };
 
-  // Recalculate averages if percentages change
   useEffect(() => {
     setAlumnos(prevAlumnos => 
       prevAlumnos.map(al => {
@@ -653,11 +738,13 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     student.promedio = calculateStudentAverage(student.calificaciones, porcentajes);
     setAlumnos((prev) => [...prev, student]);
+    upsertAlumnoToSupabase(student);
   };
 
   // Delete Alumno
   const deleteAlumno = (id: string) => {
     setAlumnos((prev) => prev.filter(al => al.id !== id));
+    deleteAlumnoFromSupabase(id);
   };
 
   // Save/Register daily attendance
@@ -684,14 +771,19 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (currentStatus === 'falta') fal += 1;
         if (currentStatus === 'retardo') ret += 1;
 
-        return {
+        const updatedStudent = {
           ...al,
           asistenciasCount: pres,
           faltasCount: fal,
           retardosCount: ret
         };
+
+        upsertAlumnoToSupabase(updatedStudent);
+        return updatedStudent;
       })
     );
+
+    saveAsistenciaToSupabase(fecha, status);
   };
 
   // Update specific student grade
@@ -724,11 +816,14 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updatedCalificaciones[campoId] = campoCal;
         const newProm = calculateStudentAverage(updatedCalificaciones, porcentajes);
 
-        return {
+        const updated = {
           ...al,
           calificaciones: updatedCalificaciones,
           promedio: newProm
         };
+
+        upsertAlumnoToSupabase(updated);
+        return updated;
       })
     );
   };
@@ -749,11 +844,14 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updatedCalificaciones[campoId] = campoCal;
         const newProm = calculateStudentAverage(updatedCalificaciones, porcentajes);
 
-        return {
+        const updated = {
           ...al,
           calificaciones: updatedCalificaciones,
           promedio: newProm
         };
+
+        upsertAlumnoToSupabase(updated);
+        return updated;
       })
     );
   };
@@ -777,6 +875,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       productosRestantes: 0,
     };
     setLotes((prev) => [...prev, lote]);
+    upsertLoteToSupabase(lote);
   };
 
   // Add Producto
@@ -787,15 +886,18 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       id
     };
     setProductos((prev) => [...prev, prod]);
+    upsertProductoToSupabase(prod);
 
     setLotes(prevLotes => 
       prevLotes.map(l => {
         if (l.id !== prod.loteId) return l;
-        return {
+        const updatedLote = {
           ...l,
           productosRestantes: l.productosRestantes + prod.cantidad,
           inversion: l.inversion + (prod.costo * prod.cantidad)
         };
+        upsertLoteToSupabase(updatedLote);
+        return updatedLote;
       })
     );
   };
@@ -811,11 +913,14 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     setVentas((prev) => [...prev, venta]);
+    insertVentaToSupabase(venta);
 
     setProductos(prevProds => 
       prevProds.map(p => {
         if (p.id !== venta.productoId) return p;
-        return { ...p, estado: 'Vendido' };
+        const updatedProd = { ...p, estado: 'Vendido' as const };
+        upsertProductoToSupabase(updatedProd);
+        return updatedProd;
       })
     );
 
@@ -826,12 +931,14 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setLotes(prevLotes => 
         prevLotes.map(l => {
           if (l.id !== product.loteId) return l;
-          return {
+          const updatedLote = {
             ...l,
             ventas: l.ventas + venta.precioFinal,
             ganancia: l.ganancia + gananciaGenerada,
             productosRestantes: Math.max(0, l.productosRestantes - 1)
           };
+          upsertLoteToSupabase(updatedLote);
+          return updatedLote;
         })
       );
     }
@@ -848,15 +955,18 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     setProductos((prev) => prev.filter(p => p.id !== id));
+    deleteProductoFromSupabase(id);
 
     setLotes(prevLotes => 
       prevLotes.map(l => {
         if (l.id !== product.loteId) return l;
-        return {
+        const updatedLote = {
           ...l,
           inversion: Math.max(0, l.inversion - (product.costo * product.cantidad)),
           productosRestantes: Math.max(0, l.productosRestantes - product.cantidad)
         };
+        upsertLoteToSupabase(updatedLote);
+        return updatedLote;
       })
     );
 
@@ -873,6 +983,10 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         navigateTo,
         goBack,
         
+        // Cloud
+        isCloudConnected,
+        isSyncing,
+
         // School
         alumnos,
         asistencia,

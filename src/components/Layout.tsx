@@ -9,7 +9,8 @@ import {
   Menu, 
   X, 
   Home, 
-  ArrowLeft 
+  ArrowLeft,
+  Cloud 
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -17,7 +18,7 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { currentView, navigateTo, goBack } = useAppState();
+  const { currentView, navigateTo, goBack, isCloudConnected, isSyncing } = useAppState();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // If in login page, don't show the layout frame
@@ -229,6 +230,22 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-grayblue-500">Ciclo: 2026-2027</span>
             <div className="h-1.5 w-1.5 rounded-full bg-sage-400"></div>
+            
+            {/* Supabase Cloud Indicator */}
+            <div 
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all ${
+                isSyncing
+                  ? 'bg-amber-50 text-amber-600 border-amber-200 animate-pulse'
+                  : isCloudConnected
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-cream-100 text-grayblue-600 border-cream-200'
+              }`}
+              title={isCloudConnected ? "Conectado a la base de datos Supabase" : "Modo local activo"}
+            >
+              <Cloud className="h-3.5 w-3.5" />
+              <span>{isSyncing ? 'Sincronizando...' : isCloudConnected ? 'Nube Supabase Conectada' : 'Nube Activa'}</span>
+            </div>
+
             <span className="text-sm font-semibold text-sage-600 bg-sage-50 px-3 py-1.5 rounded-full">
               Docente Conectada
             </span>
