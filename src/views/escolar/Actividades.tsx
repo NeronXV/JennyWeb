@@ -10,15 +10,28 @@ export const Actividades: React.FC = () => {
     porcentajes, 
     updateCalificacion, 
     addColumnaCalificacion,
-    trimestre
+    trimestre,
+    grado,
+    grupo,
+    setGrado,
+    setGrupo,
+    gradosDisponibles,
+    gruposDisponibles
   } = useAppState();
 
   const campoId = selectedCampoId || 'lenguajes';
   const campo = camposFormativos.find(c => c.id === campoId) || camposFormativos[0];
   const cfg = porcentajes[campoId];
 
+  // Filter students based on selected Grado and Grupo
+  const filteredAlumnos = alumnos.filter(al => {
+    const matchesGrado = grado === 'todos' || al.grado === grado;
+    const matchesGrupo = grupo === 'todos' || al.grupo === grupo;
+    return matchesGrado && matchesGrupo;
+  });
+
   // Get current columns sizes
-  const firstStudent = alumnos[0];
+  const firstStudent = filteredAlumnos[0] || alumnos[0];
   const numActivities = firstStudent?.calificaciones[campoId]?.actividades.length || 0;
   const numTareas = firstStudent?.calificaciones[campoId]?.tareas.length || 0;
 
@@ -87,25 +100,51 @@ export const Actividades: React.FC = () => {
           </h3>
         </div>
 
-        {/* Weights Info Indicator */}
-        <div className="flex gap-4 text-xs font-semibold bg-cream-50 px-4 py-3 rounded-xl border border-cream-100">
-          <div>
-            <span className="text-grayblue-400 block uppercase text-[9px] tracking-wider">Actividades</span>
-            <span className="text-grayblue-900">{cfg?.actividades}%</span>
+        {/* Weights Info Indicator & Classroom Filter */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <select
+              value={grado}
+              onChange={(e) => setGrado(e.target.value)}
+              className="bg-cream-50 border border-cream-200 rounded-xl px-3 py-2 text-xs font-bold text-grayblue-900 focus:outline-none focus:border-sage-400 cursor-pointer"
+            >
+              <option value="todos">Todos los Grados</option>
+              {gradosDisponibles.map(g => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+
+            <select
+              value={grupo}
+              onChange={(e) => setGrupo(e.target.value)}
+              className="bg-cream-50 border border-cream-200 rounded-xl px-3 py-2 text-xs font-bold text-grayblue-900 focus:outline-none focus:border-sage-400 cursor-pointer"
+            >
+              <option value="todos">Todos los Grupos</option>
+              {gruposDisponibles.map(g => (
+                <option key={g} value={g}>Grupo "{g}"</option>
+              ))}
+            </select>
           </div>
-          <div>
-            <span className="text-grayblue-400 block uppercase text-[9px] tracking-wider">Tareas</span>
-            <span className="text-grayblue-900">{cfg?.tareas}%</span>
-          </div>
-          {campo.tieneExamen && (
+
+          <div className="flex gap-4 text-xs font-semibold bg-cream-50 px-4 py-2.5 rounded-xl border border-cream-100">
             <div>
-              <span className="text-grayblue-400 block uppercase text-[9px] tracking-wider">Examen</span>
-              <span className="text-grayblue-900">{cfg?.examen}%</span>
+              <span className="text-grayblue-400 block uppercase text-[9px] tracking-wider">Actividades</span>
+              <span className="text-grayblue-900">{cfg?.actividades}%</span>
             </div>
-          )}
-          <div>
-            <span className="text-grayblue-400 block uppercase text-[9px] tracking-wider">Total</span>
-            <span className="text-sage-600">100%</span>
+            <div>
+              <span className="text-grayblue-400 block uppercase text-[9px] tracking-wider">Tareas</span>
+              <span className="text-grayblue-900">{cfg?.tareas}%</span>
+            </div>
+            {campo.tieneExamen && (
+              <div>
+                <span className="text-grayblue-400 block uppercase text-[9px] tracking-wider">Examen</span>
+                <span className="text-grayblue-900">{cfg?.examen}%</span>
+              </div>
+            )}
+            <div>
+              <span className="text-grayblue-400 block uppercase text-[9px] tracking-wider">Total</span>
+              <span className="text-sage-600">100%</span>
+            </div>
           </div>
         </div>
       </div>
@@ -169,7 +208,7 @@ export const Actividades: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-cream-100 text-sm">
-              {alumnos.map((al) => {
+              {filteredAlumnos.map((al) => {
                 const cal = al.calificaciones[campoId] || { actividades: [], tareas: [], examen: null };
                 const finalGrade = getCalculatedFinal(al);
 

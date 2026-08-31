@@ -3,15 +3,31 @@ import { useAppState, type AsistenciaStatus } from '../../context/AppContext';
 import { Check, Clock, X, Calendar, Save, History, UserCheck } from 'lucide-react';
 
 export const Asistencia: React.FC = () => {
-  const { alumnos, asistencia, saveAsistencia } = useAppState();
+  const { 
+    alumnos, 
+    asistencia, 
+    saveAsistencia, 
+    grado, 
+    grupo, 
+    setGrado, 
+    setGrupo,
+    gradosDisponibles,
+    gruposDisponibles
+  } = useAppState();
   
   const today = '2026-08-25'; // Fixed mock date as requested
   const [selectedDate, setSelectedDate] = useState(today);
   const [activeTab, setActiveTab] = useState<'registro' | 'historial'>('registro');
 
+  // Filter students based on selected Grado and Grupo
+  const filteredAlumnos = alumnos.filter(al => {
+    const matchesGrado = grado === 'todos' || al.grado === grado;
+    const matchesGrupo = grupo === 'todos' || al.grupo === grupo;
+    return matchesGrado && matchesGrupo;
+  });
+
   // Local state for the current grid input
   const [localStatus, setLocalStatus] = useState<{ [alumnoId: string]: AsistenciaStatus }>(() => {
-    // Try to load existing data for selectedDate, else default to 'presente' for all
     const existing = asistencia.find(a => a.fecha === selectedDate);
     if (existing) {
       return { ...existing.status };
@@ -73,19 +89,53 @@ export const Asistencia: React.FC = () => {
       {/* Header controls & Tabs */}
       <div className="bg-white p-6 rounded-2xl border border-cream-200 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         
-        {/* Date Selector */}
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <Calendar className="h-5 w-5 text-sage-500 shrink-0" />
+        {/* Date Selector & Classroom Filter */}
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-sage-500 shrink-0" />
+            <div>
+              <label className="text-[10px] font-bold text-grayblue-400 uppercase tracking-wider block">
+                Fecha de Registro
+              </label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="bg-cream-50 border border-cream-200 rounded-xl px-3 py-1.5 text-sm font-semibold text-grayblue-900 focus:outline-none focus:border-sage-400"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="text-[10px] font-bold text-grayblue-400 uppercase tracking-wider block">
-              Fecha de Registro
+              Grado
             </label>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="bg-cream-50 border border-cream-200 rounded-xl px-3 py-1.5 text-sm font-semibold text-grayblue-900 focus:outline-none focus:border-sage-400"
-            />
+            <select
+              value={grado}
+              onChange={(e) => setGrado(e.target.value)}
+              className="bg-cream-50 border border-cream-200 rounded-xl px-3 py-1.5 text-xs font-bold text-grayblue-900 focus:outline-none focus:border-sage-400 cursor-pointer"
+            >
+              <option value="todos">Todos los Grados</option>
+              {gradosDisponibles.map(g => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-bold text-grayblue-400 uppercase tracking-wider block">
+              Grupo
+            </label>
+            <select
+              value={grupo}
+              onChange={(e) => setGrupo(e.target.value)}
+              className="bg-cream-50 border border-cream-200 rounded-xl px-3 py-1.5 text-xs font-bold text-grayblue-900 focus:outline-none focus:border-sage-400 cursor-pointer"
+            >
+              <option value="todos">Todos los Grupos</option>
+              {gruposDisponibles.map(g => (
+                <option key={g} value={g}>Grupo "{g}"</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -154,7 +204,7 @@ export const Asistencia: React.FC = () => {
           {/* Touch-Friendly List */}
           <div className="bg-white rounded-2xl border border-cream-200 shadow-xs overflow-hidden">
             <div className="divide-y divide-cream-100">
-              {alumnos.map((al) => {
+              {filteredAlumnos.map((al) => {
                 const currentVal = localStatus[al.id] || 'presente';
 
                 return (

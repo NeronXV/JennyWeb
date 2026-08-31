@@ -139,10 +139,18 @@ interface AppContextProps {
   grupo: string;
   trimestre: string;
   
+  gradosDisponibles: string[];
+  gruposDisponibles: string[];
+  ciclosDisponibles: string[];
+
   setCicloEscolar: (val: string) => void;
   setGrado: (val: string) => void;
   setGrupo: (val: string) => void;
   setTrimestre: (val: string) => void;
+  
+  addGrado: (val: string) => void;
+  addGrupo: (val: string) => void;
+  addCicloEscolar: (val: string) => void;
   
   addAlumno: (alumno: Omit<Alumno, 'id' | 'promedio' | 'asistenciasCount' | 'faltasCount' | 'retardosCount' | 'calificaciones'>) => void;
   deleteAlumno: (id: string) => void;
@@ -509,7 +517,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isCloudConnected, setIsCloudConnected] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Filters
+  // Active Filters
   const [cicloEscolar, setCicloEscolar] = useState<string>(() => 
     getStoredValue('jenny_ciclo_escolar', '2026-2027')
   );
@@ -522,6 +530,53 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [trimestre, setTrimestre] = useState<string>(() => 
     getStoredValue('jenny_trimestre', '1.º')
   );
+
+  // Dynamic lists of Grados, Grupos and Ciclos
+  const [gradosDisponibles, setGradosDisponibles] = useState<string[]>(() =>
+    getStoredValue('jenny_grados_list', ['1.º', '2.º', '3.º', '4.º', '5.º', '6.º'])
+  );
+  const [gruposDisponibles, setGruposDisponibles] = useState<string[]>(() =>
+    getStoredValue('jenny_grupos_list', ['A', 'B', 'C', 'D', 'E', 'Único'])
+  );
+  const [ciclosDisponibles, setCiclosDisponibles] = useState<string[]>(() =>
+    getStoredValue('jenny_ciclos_list', ['2026-2027', '2025-2026', '2024-2025'])
+  );
+
+  useEffect(() => {
+    localStorage.setItem('jenny_grados_list', JSON.stringify(gradosDisponibles));
+  }, [gradosDisponibles]);
+
+  useEffect(() => {
+    localStorage.setItem('jenny_grupos_list', JSON.stringify(gruposDisponibles));
+  }, [gruposDisponibles]);
+
+  useEffect(() => {
+    localStorage.setItem('jenny_ciclos_list', JSON.stringify(ciclosDisponibles));
+  }, [ciclosDisponibles]);
+
+  const addGrado = (val: string) => {
+    const trimmed = val.trim();
+    if (trimmed && !gradosDisponibles.includes(trimmed)) {
+      setGradosDisponibles(prev => [...prev, trimmed]);
+      setGrado(trimmed);
+    }
+  };
+
+  const addGrupo = (val: string) => {
+    const trimmed = val.trim().toUpperCase();
+    if (trimmed && !gruposDisponibles.includes(trimmed)) {
+      setGruposDisponibles(prev => [...prev, trimmed]);
+      setGrupo(trimmed);
+    }
+  };
+
+  const addCicloEscolar = (val: string) => {
+    const trimmed = val.trim();
+    if (trimmed && !ciclosDisponibles.includes(trimmed)) {
+      setCiclosDisponibles(prev => [...prev, trimmed]);
+      setCicloEscolar(trimmed);
+    }
+  };
 
   // School Data
   const [alumnos, setAlumnos] = useState<Alumno[]>(() => 
@@ -1030,10 +1085,16 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         grado,
         grupo,
         trimestre,
+        gradosDisponibles,
+        gruposDisponibles,
+        ciclosDisponibles,
         setCicloEscolar,
         setGrado,
         setGrupo,
         setTrimestre,
+        addGrado,
+        addGrupo,
+        addCicloEscolar,
         addAlumno,
         deleteAlumno,
         saveAsistencia,

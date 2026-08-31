@@ -17,7 +17,19 @@ import {
 import { downloadCSV } from '../../utils/exportUtils';
 
 export const Alumnos: React.FC = () => {
-  const { alumnos, addAlumno, deleteAlumno, navigateTo, grado, grupo } = useAppState();
+  const { 
+    alumnos, 
+    addAlumno, 
+    deleteAlumno, 
+    navigateTo, 
+    grado, 
+    grupo, 
+    setGrado, 
+    setGrupo,
+    gradosDisponibles,
+    gruposDisponibles
+  } = useAppState();
+  
   const [searchTerm, setSearchTerm] = useState('');
   
   // Modals state
@@ -32,16 +44,21 @@ export const Alumnos: React.FC = () => {
   const [curp, setCurp] = useState('');
   const [sexo, setSexo] = useState<'M' | 'F'>('F');
   const [fechaNacimiento, setFechaNacimiento] = useState('2016-01-01');
+  const [formGrado, setFormGrado] = useState(grado === 'todos' ? '5.º' : (grado || '5.º'));
+  const [formGrupo, setFormGrupo] = useState(grupo === 'todos' ? 'A' : (grupo || 'A'));
 
   // Import state
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Filter students based on search term
-  const filteredAlumnos = alumnos.filter(al => 
-    al.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    al.curp.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter students based on search term AND selected Grado/Grupo
+  const filteredAlumnos = alumnos.filter(al => {
+    const matchesSearch = al.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          al.curp.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesGrado = grado === 'todos' || al.grado === grado;
+    const matchesGrupo = grupo === 'todos' || al.grupo === grupo;
+    return matchesSearch && matchesGrado && matchesGrupo;
+  });
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,8 +69,8 @@ export const Alumnos: React.FC = () => {
       curp: curp.trim().toUpperCase(),
       sexo,
       fechaNacimiento,
-      grado: grado || '5.º',
-      grupo: grupo || 'A'
+      grado: formGrado,
+      grupo: formGrupo
     });
 
     // Reset state & close modal
@@ -172,6 +189,31 @@ export const Alumnos: React.FC = () => {
           />
         </div>
 
+        {/* Grado & Grupo Filter Selectors */}
+        <div className="flex items-center gap-2">
+          <select
+            value={grado}
+            onChange={(e) => setGrado(e.target.value)}
+            className="bg-cream-50 border border-cream-200 rounded-xl px-3 py-2 text-xs font-bold text-grayblue-800 focus:outline-none focus:border-sage-400 cursor-pointer"
+          >
+            <option value="todos">Todos los Grados</option>
+            {gradosDisponibles.map(g => (
+              <option key={g} value={g}>{g}</option>
+            ))}
+          </select>
+
+          <select
+            value={grupo}
+            onChange={(e) => setGrupo(e.target.value)}
+            className="bg-cream-50 border border-cream-200 rounded-xl px-3 py-2 text-xs font-bold text-grayblue-800 focus:outline-none focus:border-sage-400 cursor-pointer"
+          >
+            <option value="todos">Todos los Grupos</option>
+            {gruposDisponibles.map(g => (
+              <option key={g} value={g}>Grupo "{g}"</option>
+            ))}
+          </select>
+        </div>
+
         {/* Buttons */}
         <div className="flex flex-wrap w-full sm:w-auto gap-3">
           <button
@@ -190,7 +232,11 @@ export const Alumnos: React.FC = () => {
             <span>Importar CSV / Excel</span>
           </button>
           <button
-            onClick={() => setAddModalOpen(true)}
+            onClick={() => {
+              setFormGrado(grado === 'todos' ? '5.º' : grado);
+              setFormGrupo(grupo === 'todos' ? 'A' : grupo);
+              setAddModalOpen(true);
+            }}
             className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-sage-500 hover:bg-sage-600 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-colors shadow-sm shadow-sage-200 cursor-pointer"
           >
             <Plus className="h-4 w-4" />
@@ -364,6 +410,39 @@ export const Alumnos: React.FC = () => {
                     onChange={(e) => setFechaNacimiento(e.target.value)}
                     className="w-full bg-cream-50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-sm text-grayblue-900 focus:outline-none focus:border-sage-400 focus:bg-white"
                   />
+                </div>
+              </div>
+
+              {/* Grado y Grupo assignment */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-grayblue-500 uppercase tracking-wider block mb-1">
+                    Grado Asignado
+                  </label>
+                  <select
+                    value={formGrado}
+                    onChange={(e) => setFormGrado(e.target.value)}
+                    className="w-full bg-cream-50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-sm text-grayblue-900 focus:outline-none focus:border-sage-400 focus:bg-white font-semibold"
+                  >
+                    {gradosDisponibles.map(g => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-grayblue-500 uppercase tracking-wider block mb-1">
+                    Grupo Asignado
+                  </label>
+                  <select
+                    value={formGrupo}
+                    onChange={(e) => setFormGrupo(e.target.value)}
+                    className="w-full bg-cream-50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-sm text-grayblue-900 focus:outline-none focus:border-sage-400 focus:bg-white font-semibold"
+                  >
+                    {gruposDisponibles.map(g => (
+                      <option key={g} value={g}>Grupo "{g}"</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
