@@ -18,7 +18,7 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { currentView, navigateTo, goBack, isCloudConnected, isSyncing } = useAppState();
+  const { currentView, navigateTo, goBack, isCloudConnected, isSyncing, userName, userEmail, logout } = useAppState();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // If in login page, don't show the layout frame
@@ -106,14 +106,15 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         {/* User profile / Log out footer */}
         <div className="p-4 border-t border-cream-200 bg-cream-50/50">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-terracotta-200 flex items-center justify-center font-bold text-terracotta-700">
-              J
+            <div className="h-10 w-10 rounded-full bg-terracotta-200 flex items-center justify-center font-bold text-terracotta-700 uppercase">
+              {userName.charAt(0) || 'J'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-grayblue-900 truncate">Jenny Maestra</p>
+              <p className="text-sm font-semibold text-grayblue-900 truncate">{userName}</p>
+              <span className="text-[11px] text-grayblue-400 truncate block">{userEmail}</span>
               <button 
-                onClick={() => handleNav('login')}
-                className="text-xs text-terracotta-500 hover:underline font-medium block"
+                onClick={logout}
+                className="text-xs text-terracotta-500 hover:underline font-medium block mt-0.5 cursor-pointer"
               >
                 Cerrar Sesión
               </button>
@@ -193,14 +194,15 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             <div className="p-4 border-t border-cream-200 bg-cream-50">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-terracotta-200 flex items-center justify-center font-bold text-terracotta-700">
-                  J
+                <div className="h-10 w-10 rounded-full bg-terracotta-200 flex items-center justify-center font-bold text-terracotta-700 uppercase">
+                  {userName.charAt(0) || 'J'}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-grayblue-900 truncate">Jenny Maestra</p>
+                  <p className="text-sm font-semibold text-grayblue-900 truncate">{userName}</p>
+                  <span className="text-[11px] text-grayblue-400 truncate block">{userEmail}</span>
                   <button 
-                    onClick={() => handleNav('login')}
-                    className="text-xs text-terracotta-500 hover:underline font-medium"
+                    onClick={() => { logout(); setMobileMenuOpen(false); }}
+                    className="text-xs text-terracotta-500 hover:underline font-medium block mt-0.5"
                   >
                     Cerrar Sesión
                   </button>

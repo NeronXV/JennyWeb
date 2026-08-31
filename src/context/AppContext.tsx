@@ -118,6 +118,13 @@ interface AppContextProps {
   navigateTo: (view: ViewType, options?: { studentId?: string; batchId?: string; campoId?: string }) => void;
   goBack: () => void;
 
+  // User Session
+  userEmail: string;
+  userName: string;
+  setUserEmail: (email: string) => void;
+  setUserName: (name: string) => void;
+  logout: () => void;
+
   // Cloud status
   isCloudConnected: boolean;
   isSyncing: boolean;
@@ -477,6 +484,26 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [selectedCampoId, setSelectedCampoId] = useState<string | null>(() => 
     getStoredValue<string | null>('jenny_selected_campo', null)
   );
+
+  // User Session State
+  const [userEmail, setUserEmail] = useState<string>(() =>
+    getStoredValue('jenny_user_email', 'jenny@correo.com')
+  );
+  const [userName, setUserName] = useState<string>(() =>
+    getStoredValue('jenny_user_name', 'Jenny')
+  );
+
+  useEffect(() => {
+    localStorage.setItem('jenny_user_email', JSON.stringify(userEmail));
+  }, [userEmail]);
+
+  useEffect(() => {
+    localStorage.setItem('jenny_user_name', JSON.stringify(userName));
+  }, [userName]);
+
+  const logout = () => {
+    setCurrentView('login');
+  };
 
   // Cloud State
   const [isCloudConnected, setIsCloudConnected] = useState(false);
@@ -983,6 +1010,13 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         navigateTo,
         goBack,
         
+        // User Session
+        userEmail,
+        userName,
+        setUserEmail,
+        setUserName,
+        logout,
+
         // Cloud
         isCloudConnected,
         isSyncing,
