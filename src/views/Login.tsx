@@ -1,120 +1,67 @@
 import React, { useState } from 'react';
 import { useAppState } from '../context/AppContext';
-import { GraduationCap, Lock, Mail, User, Eye, EyeOff, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
+import { GraduationCap, Lock, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
 export const Login: React.FC = () => {
   const { navigateTo, setUserEmail, setUserName } = useAppState();
-  
-  // Tab Mode: 'login' | 'register'
-  const [isRegister, setIsRegister] = useState(false);
 
   // Form Fields
-  const [name, setName] = useState('Jenny');
-  const [email, setEmail] = useState('jenny@correo.com');
-  const [password, setPassword] = useState('123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   // Status
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
-    setSuccessMessage(null);
     setLoading(true);
 
     const cleanEmail = email.trim().toLowerCase();
-    const cleanName = name.trim() || 'Jenny';
 
     if (!cleanEmail || !password) {
-      setErrorMessage('Por favor llena todos los campos.');
+      setErrorMessage('Por favor introduce tu correo y contraseña.');
       setLoading(false);
       return;
     }
 
     try {
-      if (isRegister) {
-        // Registering a new account with Supabase Auth
-        const { error } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password: password,
-          options: {
-            data: {
-              full_name: cleanName
-            }
-          }
-        });
+      // 1. Authenticate with Supabase Auth
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: password
+      });
 
-        if (error) {
-          // If already registered or Supabase signup error, explain clearly
-          if (error.message.includes('already registered')) {
-            setErrorMessage('Este correo ya tiene una cuenta. Prueba iniciar sesión.');
-          } else {
-            setErrorMessage(`Aviso: ${error.message}`);
-          }
-          // Store locally so she can still enter
-          setUserEmail(cleanEmail);
-          setUserName(cleanName);
-          setTimeout(() => navigateTo('hub'), 1500);
-          return;
+      if (error) {
+        // Friendly Spanish error messages
+        if (error.message.includes('Invalid login credentials')) {
+          setErrorMessage('Correo o contraseña incorrectos. Verifica tus datos.');
+        } else if (error.message.includes('Email not confirmed')) {
+          setErrorMessage('El correo aún no ha sido confirmado en Supabase.');
+        } else {
+          setErrorMessage(`Error de acceso: ${error.message}`);
         }
-
-        setSuccessMessage('¡Cuenta creada exitosamente! Iniciando sesión...');
-        setUserEmail(cleanEmail);
-        setUserName(cleanName);
-        setTimeout(() => {
-          navigateTo('hub');
-        }, 1000);
-
-      } else {
-        // Signing in with Supabase Auth
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password: password
-        });
-
-        if (error) {
-          // If password was wrong or demo user
-          if (cleanEmail === 'jenny@correo.com' && password === '123456') {
-            setUserEmail(cleanEmail);
-            setUserName('Jenny');
-            navigateTo('hub');
-            return;
-          }
-
-          // Fallback: If not found in Auth but she entered her custom credentials
-          setUserEmail(cleanEmail);
-          setUserName(cleanName);
-          navigateTo('hub');
-          return;
-        }
-
-        // Successfully signed in with Supabase
-        const userMetaName = data.user?.user_metadata?.full_name || cleanName;
-        setUserEmail(cleanEmail);
-        setUserName(userMetaName);
-        navigateTo('hub');
+        setLoading(false);
+        return;
       }
-    } catch (err: any) {
-      // In case of network issue, allow local offline entry
+
+      // 2. Success: Extract name or use email prefix
+      const userMetaName = data.user?.user_metadata?.full_name || 
+                           data.user?.email?.split('@')[0] || 
+                           'Jenny';
+
       setUserEmail(cleanEmail);
-      setUserName(cleanName);
+      setUserName(userMetaName);
       navigateTo('hub');
+
+    } catch (err: any) {
+      setErrorMessage('Ocurrió un error al conectar. Intenta de nuevo.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickDemo = () => {
-    setEmail('jenny@correo.com');
-    setPassword('123456');
-    setName('Jenny');
-    setUserEmail('jenny@correo.com');
-    setUserName('Jenny');
-    navigateTo('hub');
   };
 
   return (
@@ -127,7 +74,7 @@ export const Login: React.FC = () => {
       <div className="w-full max-w-md bg-white border border-cream-200 rounded-3xl p-8 shadow-xl relative z-10 animate-scale-in">
         
         {/* Header Branding */}
-        <div className="text-center mb-6">
+        <div className="text-center mb-8">
           <div className="inline-flex bg-sage-100 p-3.5 rounded-2xl text-sage-600 mb-3 shadow-xs">
             <GraduationCap className="h-8 w-8" />
           </div>
@@ -137,72 +84,17 @@ export const Login: React.FC = () => {
           </p>
         </div>
 
-        {/* Tab Switcher: Iniciar Sesión vs Crear Cuenta */}
-        <div className="bg-cream-100 p-1 rounded-2xl flex gap-1 mb-6">
-          <button
-            type="button"
-            onClick={() => { setIsRegister(false); setErrorMessage(null); setSuccessMessage(null); }}
-            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              !isRegister 
-                ? 'bg-white text-grayblue-900 shadow-xs' 
-                : 'text-grayblue-500 hover:text-grayblue-900'
-            }`}
-          >
-            Iniciar Sesión
-          </button>
-          <button
-            type="button"
-            onClick={() => { setIsRegister(true); setErrorMessage(null); setSuccessMessage(null); }}
-            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              isRegister 
-                ? 'bg-white text-grayblue-900 shadow-xs' 
-                : 'text-grayblue-500 hover:text-grayblue-900'
-            }`}
-          >
-            Crear Cuenta / Clave
-          </button>
-        </div>
-
-        {/* Alerts & Messages */}
+        {/* Error Alert */}
         {errorMessage && (
-          <div className="mb-4 bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-2xl text-xs font-semibold flex items-center gap-2">
+          <div className="mb-5 bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-2xl text-xs font-semibold flex items-center gap-2 animate-fade-in">
             <AlertCircle className="h-4 w-4 shrink-0 text-rose-500" />
             <span>{errorMessage}</span>
           </div>
         )}
 
-        {successMessage && (
-          <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-2xl text-xs font-semibold flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
-            <span>{successMessage}</span>
-          </div>
-        )}
-
-        {/* Form */}
+        {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           
-          {/* Name Field (only if registering) */}
-          {isRegister && (
-            <div className="space-y-1 animate-fade-in">
-              <label className="text-xs font-bold text-grayblue-500 uppercase tracking-wider block">
-                Tu Nombre
-              </label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-grayblue-400">
-                  <User className="h-5 w-5" />
-                </span>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-cream-50 border border-cream-200 rounded-2xl text-grayblue-900 placeholder-grayblue-400 focus:outline-none focus:border-sage-400 focus:bg-white text-sm transition-colors"
-                  placeholder="Ej. Jenny"
-                />
-              </div>
-            </div>
-          )}
-
           {/* Email Field */}
           <div className="space-y-1">
             <label className="text-xs font-bold text-grayblue-500 uppercase tracking-wider block">
@@ -217,22 +109,18 @@ export const Login: React.FC = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 bg-cream-50 border border-cream-200 rounded-2xl text-grayblue-900 placeholder-grayblue-400 focus:outline-none focus:border-sage-400 focus:bg-white text-sm transition-colors"
+                className="w-full pl-11 pr-4 py-3.5 bg-cream-50 border border-cream-200 rounded-2xl text-grayblue-900 placeholder-grayblue-400 focus:outline-none focus:border-sage-400 focus:bg-white text-sm transition-colors"
                 placeholder="tu-correo@gmail.com"
+                autoComplete="email"
               />
             </div>
           </div>
 
           {/* Password Field */}
           <div className="space-y-1">
-            <div className="flex justify-between items-center">
-              <label className="text-xs font-bold text-grayblue-500 uppercase tracking-wider block">
-                {isRegister ? 'Elige tu contraseña' : 'Tu contraseña'}
-              </label>
-              {isRegister && (
-                <span className="text-[10px] text-grayblue-400">Mínimo 6 caracteres</span>
-              )}
-            </div>
+            <label className="text-xs font-bold text-grayblue-500 uppercase tracking-wider block">
+              Contraseña
+            </label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-grayblue-400">
                 <Lock className="h-5 w-5" />
@@ -240,11 +128,11 @@ export const Login: React.FC = () => {
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
-                minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-11 pr-12 py-3 bg-cream-50 border border-cream-200 rounded-2xl text-grayblue-900 placeholder-grayblue-400 focus:outline-none focus:border-sage-400 focus:bg-white text-sm transition-colors"
+                className="w-full pl-11 pr-12 py-3.5 bg-cream-50 border border-cream-200 rounded-2xl text-grayblue-900 placeholder-grayblue-400 focus:outline-none focus:border-sage-400 focus:bg-white text-sm transition-colors"
                 placeholder="••••••••"
+                autoComplete="current-password"
               />
               <button
                 type="button"
@@ -265,24 +153,18 @@ export const Login: React.FC = () => {
           >
             {loading ? (
               <span className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-            ) : isRegister ? (
-              'Crear mi cuenta y acceder'
             ) : (
-              'Entrar al sistema'
+              'Iniciar Sesión'
             )}
           </button>
         </form>
 
-        {/* Quick Demo Access Helper */}
-        <div className="mt-6 pt-4 border-t border-cream-200 text-center">
-          <button
-            type="button"
-            onClick={handleQuickDemo}
-            className="inline-flex items-center gap-1.5 text-xs text-sage-600 hover:text-sage-700 font-bold hover:underline cursor-pointer"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            Acceso Rápido Demo (1 clic)
-          </button>
+        {/* Security badge footer */}
+        <div className="mt-8 pt-5 border-t border-cream-200 text-center">
+          <span className="text-[11px] text-grayblue-400 font-semibold flex items-center justify-center gap-1.5">
+            <Lock className="h-3.5 w-3.5 text-sage-500" />
+            Acceso seguro protegido con Supabase Auth
+          </span>
         </div>
 
       </div>
