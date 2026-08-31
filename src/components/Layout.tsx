@@ -10,8 +10,16 @@ import {
   X, 
   Home, 
   ArrowLeft,
-  Cloud 
+  Cloud,
+  KeyRound,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  AlertCircle,
+  Lock,
+  User
 } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -20,6 +28,14 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { currentView, navigateTo, goBack, isCloudConnected, isSyncing, userName, userEmail, logout } = useAppState();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Change Password Modal State
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+  const [passwordStatus, setPasswordStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // If in login page, don't show the layout frame
   if (currentView === 'login') {
@@ -61,6 +77,45 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   };
 
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordStatus(null);
+
+    if (newPassword.length < 6) {
+      setPasswordStatus({ type: 'error', message: 'La nueva contraseña debe tener al menos 6 caracteres.' });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordStatus({ type: 'error', message: 'Las contraseñas no coinciden. Por favor verifícalas.' });
+      return;
+    }
+
+    setUpdatingPassword(true);
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        setPasswordStatus({ type: 'error', message: `No se pudo actualizar: ${error.message}` });
+      } else {
+        setPasswordStatus({ type: 'success', message: '¡Tu contraseña ha sido cambiada exitosamente!' });
+        setNewPassword('');
+        setConfirmPassword('');
+        setTimeout(() => {
+          setProfileModalOpen(false);
+          setPasswordStatus(null);
+        }, 2000);
+      }
+    } catch (err: any) {
+      setPasswordStatus({ type: 'error', message: 'Error de conexión. Intenta nuevamente.' });
+    } finally {
+      setUpdatingPassword(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-cream-50 text-grayblue-900 transition-all duration-200">
       
@@ -81,7 +136,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            // Determine active tab
             const isActive = currentView === item.view || 
               (item.view === 'escolar-dashboard' && currentView.startsWith('escolar-')) ||
               (item.view === 'negocio-dashboard' && currentView.startsWith('negocio-'));
@@ -90,7 +144,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <button
                 key={item.view}
                 onClick={() => handleNav(item.view)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 ${
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer ${
                   isActive 
                     ? 'bg-sage-500 text-white shadow-sm shadow-sage-200' 
                     : 'text-grayblue-500 hover:bg-cream-100 hover:text-grayblue-900'
@@ -106,18 +160,40 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         {/* User profile / Log out footer */}
         <div className="p-4 border-t border-cream-200 bg-cream-50/50">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-terracotta-200 flex items-center justify-center font-bold text-terracotta-700 uppercase">
+            <div 
+              onClick={() => setProfileModalOpen(true)}
+              className="h-10 w-10 rounded-full bg-terracotta-200 hover:bg-terracotta-300 flex items-center justify-center font-bold text-terracotta-700 uppercase cursor-pointer transition-colors shrink-0"
+              title="Mi perfil y cambiar contraseña"
+            >
               {userName.charAt(0) || 'J'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-grayblue-900 truncate">{userName}</p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-grayblue-900 truncate">{userName}</p>
+                <button
+                  onClick={() => setProfileModalOpen(true)}
+                  className="p-1 hover:bg-cream-200 rounded-md text-grayblue-400 hover:text-grayblue-800 transition-colors cursor-pointer"
+                  title="Cambiar contraseña"
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                </button>
+              </div>
               <span className="text-[11px] text-grayblue-400 truncate block">{userEmail}</span>
-              <button 
-                onClick={logout}
-                className="text-xs text-terracotta-500 hover:underline font-medium block mt-0.5 cursor-pointer"
-              >
-                Cerrar Sesión
-              </button>
+              <div className="flex items-center gap-2 mt-1">
+                <button 
+                  onClick={() => setProfileModalOpen(true)}
+                  className="text-[11px] text-sage-600 hover:underline font-bold cursor-pointer"
+                >
+                  Cambiar clave
+                </button>
+                <span className="text-[10px] text-grayblue-300">•</span>
+                <button 
+                  onClick={logout}
+                  className="text-[11px] text-terracotta-500 hover:underline font-medium cursor-pointer"
+                >
+                  Cerrar Sesión
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -128,14 +204,17 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="flex items-center gap-2">
           <button 
             onClick={() => setMobileMenuOpen(true)}
-            className="p-2 text-grayblue-500 hover:bg-cream-100 rounded-lg"
+            className="p-2 text-grayblue-500 hover:bg-cream-100 rounded-lg cursor-pointer"
           >
             <Menu className="h-6 w-6" />
           </button>
           <span className="font-bold text-lg text-grayblue-900">Sistema Jenny</span>
         </div>
-        <div className="h-8 w-8 rounded-full bg-terracotta-200 flex items-center justify-center font-bold text-terracotta-700">
-          J
+        <div 
+          onClick={() => setProfileModalOpen(true)}
+          className="h-8 w-8 rounded-full bg-terracotta-200 flex items-center justify-center font-bold text-terracotta-700 uppercase cursor-pointer"
+        >
+          {userName.charAt(0) || 'J'}
         </div>
       </header>
 
@@ -194,18 +273,30 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             <div className="p-4 border-t border-cream-200 bg-cream-50">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-terracotta-200 flex items-center justify-center font-bold text-terracotta-700 uppercase">
+                <div 
+                  onClick={() => { setProfileModalOpen(true); setMobileMenuOpen(false); }}
+                  className="h-10 w-10 rounded-full bg-terracotta-200 flex items-center justify-center font-bold text-terracotta-700 uppercase cursor-pointer"
+                >
                   {userName.charAt(0) || 'J'}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-grayblue-900 truncate">{userName}</p>
                   <span className="text-[11px] text-grayblue-400 truncate block">{userEmail}</span>
-                  <button 
-                    onClick={() => { logout(); setMobileMenuOpen(false); }}
-                    className="text-xs text-terracotta-500 hover:underline font-medium block mt-0.5"
-                  >
-                    Cerrar Sesión
-                  </button>
+                  <div className="flex items-center gap-2 mt-1">
+                    <button 
+                      onClick={() => { setProfileModalOpen(true); setMobileMenuOpen(false); }}
+                      className="text-[11px] text-sage-600 hover:underline font-bold"
+                    >
+                      Cambiar clave
+                    </button>
+                    <span className="text-[10px] text-grayblue-300">•</span>
+                    <button 
+                      onClick={() => { logout(); setMobileMenuOpen(false); }}
+                      className="text-[11px] text-terracotta-500 hover:underline font-medium"
+                    >
+                      Cerrar Sesión
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -275,6 +366,135 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
         </div>
       </main>
+
+      {/* MODAL: CAMBIAR CONTRASEÑA Y PERFIL */}
+      {profileModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/45 backdrop-blur-xs" onClick={() => setProfileModalOpen(false)} />
+          <div className="relative bg-white border border-cream-200 rounded-3xl w-full max-w-md p-6 md:p-8 shadow-2xl z-10 animate-scale-in">
+            
+            {/* Header */}
+            <div className="flex justify-between items-start mb-6">
+              <div className="flex items-center gap-3">
+                <div className="bg-sage-100 p-2.5 rounded-2xl text-sage-600">
+                  <KeyRound className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-grayblue-900">Seguridad de la Cuenta</h3>
+                  <p className="text-xs text-grayblue-400">Actualiza tu contraseña de acceso</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setProfileModalOpen(false)}
+                className="p-1.5 hover:bg-cream-100 rounded-xl text-grayblue-400 hover:text-grayblue-900"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Current Account Info Box */}
+            <div className="bg-cream-50 p-4 rounded-2xl border border-cream-200 mb-5 space-y-1">
+              <div className="flex items-center gap-2 text-xs font-bold text-grayblue-700">
+                <User className="h-3.5 w-3.5 text-sage-500" />
+                <span>Usuario actual: {userName}</span>
+              </div>
+              <p className="text-[11px] text-grayblue-500 font-mono pl-5">{userEmail}</p>
+            </div>
+
+            {/* Status alerts */}
+            {passwordStatus && (
+              <div className={`mb-4 p-3.5 rounded-2xl text-xs font-semibold flex items-center gap-2 animate-fade-in ${
+                passwordStatus.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-rose-50 text-rose-700 border border-rose-200'
+              }`}>
+                {passwordStatus.type === 'success' ? (
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 shrink-0 text-rose-500" />
+                )}
+                <span>{passwordStatus.message}</span>
+              </div>
+            )}
+
+            {/* Change Password Form */}
+            <form onSubmit={handleUpdatePassword} className="space-y-4">
+              
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-grayblue-500 uppercase tracking-wider block">
+                  Nueva Contraseña
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-grayblue-400">
+                    <Lock className="h-4 w-4" />
+                  </span>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full pl-10 pr-11 py-2.5 bg-cream-50 border border-cream-200 rounded-xl text-sm focus:outline-none focus:border-sage-400 focus:bg-white text-grayblue-900"
+                    placeholder="Mínimo 6 caracteres"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-grayblue-400 hover:text-grayblue-700 cursor-pointer"
+                    title={showPassword ? "Ocultar" : "Ver"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-grayblue-500 uppercase tracking-wider block">
+                  Confirmar Nueva Contraseña
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-grayblue-400">
+                    <Lock className="h-4 w-4" />
+                  </span>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full pl-10 pr-11 py-2.5 bg-cream-50 border border-cream-200 rounded-xl text-sm focus:outline-none focus:border-sage-400 focus:bg-white text-grayblue-900"
+                    placeholder="Repite la nueva contraseña"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setProfileModalOpen(false)}
+                  className="flex-1 py-3 bg-cream-100 hover:bg-cream-200 rounded-xl font-bold text-xs text-grayblue-700 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={updatingPassword}
+                  className="flex-1 py-3 bg-sage-500 hover:bg-sage-600 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {updatingPassword ? (
+                    <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  ) : (
+                    'Guardar Contraseña'
+                  )}
+                </button>
+              </div>
+
+            </form>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
