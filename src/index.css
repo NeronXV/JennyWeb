@@ -86,3 +86,17 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--color-sage-300) var(--color-cream-100);
 }
+
+/* Print optimizations */
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  aside, nav, header, button, .print\:hidden {
+    display: none !important;
+  }
+  .print\:border-black {
+    border-color: #000000 !important;
+  }
+}

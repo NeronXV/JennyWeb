@@ -212,13 +212,13 @@ function getStoredValue<T>(key: string, defaultValue: T): T {
 }
 
 // One-time purge of demo data from local storage
-if (typeof window !== 'undefined' && localStorage.getItem('jenny_demo_purged_v2') !== 'true') {
+if (typeof window !== 'undefined' && localStorage.getItem('jenny_demo_purged_v3') !== 'true') {
   localStorage.removeItem('jenny_alumnos');
   localStorage.removeItem('jenny_asistencia');
   localStorage.removeItem('jenny_lotes');
   localStorage.removeItem('jenny_productos');
   localStorage.removeItem('jenny_ventas');
-  localStorage.setItem('jenny_demo_purged_v2', 'true');
+  localStorage.setItem('jenny_demo_purged_v3', 'true');
 }
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);

@@ -51,6 +51,69 @@ export const Reportes: React.FC = () => {
     downloadCSV(`Concentrado_Escolar_${cicloEscolar}_Trimestre_${trimestre}`, headers, rows);
   };
 
+  const handleExportDiagnosticoConcentrado = () => {
+    const headers = [
+      'No.',
+      'Nombre del Alumno',
+      'CURP',
+      'Grado y Grupo',
+      'Lenguajes (Diagnóstico)',
+      'Saberes y Pensamiento Científico',
+      'Ética, Naturaleza y Sociedades',
+      'De lo Humano y lo Comunitario',
+      'Promedio Diagnóstico Integral',
+      'Nivel de Desempeño Diagnóstico',
+      'Recomendación de Intervención Pedagógica'
+    ];
+
+    const rows = alumnos.map((al, idx) => {
+      const getGrade = (campoId: string) => {
+        const cal = al.calificaciones[campoId];
+        if (!cal) return 0;
+        const acts = cal.actividades || [];
+        const tars = cal.tareas || [];
+        const parts = cal.participacion || [];
+        const ex = cal.examen !== null && cal.examen !== undefined ? cal.examen : 0;
+        const aAvg = acts.length > 0 ? acts.reduce((a, b) => a + b, 0) / acts.length : (ex || 0);
+        const tAvg = tars.length > 0 ? tars.reduce((a, b) => a + b, 0) / tars.length : (ex || 0);
+        const pAvg = parts.length > 0 ? parts.reduce((a, b) => a + b, 0) / parts.length : (ex || 0);
+        return parseFloat(((aAvg * 0.35) + (tAvg * 0.25) + (ex * 0.25) + (pAvg * 0.15)).toFixed(1));
+      };
+
+      const gLeng = getGrade('lenguajes');
+      const gSab = getGrade('saberes');
+      const gEtica = getGrade('etica');
+      const gHum = getGrade('humano');
+      const avg = parseFloat(((gLeng + gSab + gEtica + gHum) / 4).toFixed(1));
+
+      let nivel = 'Nivel Esperado (Consolidado)';
+      let rec = 'Muestra dominio favorable de los aprendizajes esperados al inicio del ciclo escolar.';
+      if (avg < 6.0) {
+        nivel = 'Requiere Apoyo Prioritario';
+        rec = 'Atención prioritaria y plan de nivelación en lectura, comprensión y razonamiento matemático.';
+      } else if (avg < 8.5) {
+        nivel = 'En Desarrollo';
+        rec = 'Acompañamiento guiado constante y fortalecimiento de hábitos de entrega de tareas.';
+      }
+
+      return [
+        idx + 1,
+        al.nombre,
+        al.curp,
+        `${al.grado} "${al.grupo}"`,
+        gLeng,
+        gSab,
+        gEtica,
+        gHum,
+        avg,
+        nivel,
+        rec
+      ];
+    });
+
+    downloadCSV(`Concentrado_Diagnostico_Inicial_Direccion_${cicloEscolar}`, headers, rows);
+  };
+
   const handleExportAsistencia = () => {
     const headers = ['Nombre Alumno', 'CURP', 'Asistencias', 'Faltas', 'Retardos', 'Porcentaje Asistencia'];
     const rows = alumnos.map(al => {
@@ -188,6 +251,22 @@ export const Reportes: React.FC = () => {
                   onClick={handleExportAsistencia}
                   className="flex items-center gap-1 bg-white hover:bg-cream-100 border border-cream-300 text-emerald-700 px-3 py-1.5 rounded-xl text-xs font-bold shadow-2xs transition-colors cursor-pointer"
                   title="Descargar Excel CSV"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>Excel</span>
+                </button>
+              </div>
+
+              {/* Diagnostico Inicial export for Dirección */}
+              <div className="p-3.5 bg-indigo-50/60 rounded-2xl border border-indigo-100 flex justify-between items-center">
+                <div>
+                  <span className="text-xs font-bold text-indigo-950 block">Diagnóstico Inicial (Dirección)</span>
+                  <span className="text-[10px] text-indigo-600 font-medium">Informe general de inicio de ciclo</span>
+                </div>
+                <button 
+                  onClick={handleExportDiagnosticoConcentrado}
+                  className="flex items-center gap-1 bg-white hover:bg-indigo-100 border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded-xl text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+                  title="Descargar Concentrado de Diagnóstico para Dirección"
                 >
                   <Download className="h-3.5 w-3.5" />
                   <span>Excel</span>
