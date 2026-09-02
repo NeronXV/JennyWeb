@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 export const DashboardNegocio: React.FC = () => {
-  const { lotes, productos, navigateTo } = useAppState();
+  const { lotes, productos, ventas, navigateTo } = useAppState();
 
   // Aggregate metrics from active mock database
   const totalInvertido = lotes.reduce((acc, l) => acc + l.inversion, 0);
@@ -105,7 +105,7 @@ export const DashboardNegocio: React.FC = () => {
 
       {/* Charts Grid */}
       <div className="grid md:grid-cols-2 gap-6">
-        <BarChart />
+        <BarChart ventas={ventas} />
         <BatchProfitChart lotes={lotes} />
       </div>
 

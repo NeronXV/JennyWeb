@@ -1,9 +1,14 @@
 import React from 'react';
 import { useAppState } from '../../context/AppContext';
-import { BookOpen, Binary, Globe, HeartHandshake } from 'lucide-react';
+import { BookOpen, Binary, Globe, HeartHandshake, Sparkles } from 'lucide-react';
 
 export const Campos: React.FC = () => {
-  const { camposFormativos, navigateTo } = useAppState();
+  const { camposFormativos, porcentajes, navigateTo } = useAppState();
+
+  const getFormatStats = (id: string) => {
+    const p = porcentajes[id] || { actividades: 35, tareas: 25, examen: 25, participacion: 15 };
+    return `Actividades (${p.actividades}%) • Tareas (${p.tareas}%) • Examen (${p.examen}%) • Participación (${p.participacion}%)`;
+  };
 
   // Helper icons and styles for each field
   const getFieldDesign = (id: string) => {
@@ -15,7 +20,7 @@ export const Campos: React.FC = () => {
           border: 'border-indigo-100 hover:border-indigo-200',
           iconColor: 'text-indigo-600 bg-indigo-100',
           desc: 'Español, Inglés, Artes y Lengua de Señas. Desarrolla la expresión oral, escrita y artística.',
-          stats: 'Examen activo • Actividades (40%) • Tareas (30%) • Examen (30%)'
+          stats: getFormatStats('lenguajes')
         };
       case 'saberes':
         return {
@@ -24,7 +29,7 @@ export const Campos: React.FC = () => {
           border: 'border-amber-100 hover:border-amber-200',
           iconColor: 'text-amber-600 bg-amber-100',
           desc: 'Matemáticas, Física, Biología y Química. Enfocado en el pensamiento lógico y la investigación.',
-          stats: 'Examen activo • Actividades (40%) • Tareas (30%) • Examen (30%)'
+          stats: getFormatStats('saberes')
         };
       case 'etica':
         return {
@@ -33,7 +38,7 @@ export const Campos: React.FC = () => {
           border: 'border-emerald-100 hover:border-emerald-200',
           iconColor: 'text-emerald-600 bg-emerald-100',
           desc: 'Geografía, Historia, Formación Cívica. Comprensión del entorno social, natural y ético.',
-          stats: 'Sin examen • Actividades (60%) • Tareas (40%)'
+          stats: getFormatStats('etica')
         };
       case 'humano':
         return {
@@ -42,7 +47,7 @@ export const Campos: React.FC = () => {
           border: 'border-rose-100 hover:border-rose-200',
           iconColor: 'text-rose-600 bg-rose-100',
           desc: 'Educación Física, Socioemocional, Vida Saludable. Formación integral para la convivencia y la salud.',
-          stats: 'Sin examen • Actividades (60%) • Tareas (40%)'
+          stats: getFormatStats('humano')
         };
       default:
         return {
@@ -51,13 +56,13 @@ export const Campos: React.FC = () => {
           border: 'border-cream-200',
           iconColor: 'text-sage-600 bg-sage-100',
           desc: '',
-          stats: ''
+          stats: getFormatStats(id)
         };
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       
       {/* View Header */}
       <div className="bg-white p-6 rounded-2xl border border-cream-200 shadow-xs">
@@ -65,7 +70,7 @@ export const Campos: React.FC = () => {
           Campos Formativos (Nueva Escuela Mexicana)
         </h3>
         <p className="text-sm font-semibold text-grayblue-500">
-          Selecciona un campo formativo para capturar calificaciones, actividades, tareas o registrar exámenes trimestrales.
+          Selecciona un campo formativo para capturar calificaciones, actividades, tareas, participación o exámenes.
         </p>
       </div>
 
@@ -105,6 +110,42 @@ export const Campos: React.FC = () => {
             </button>
           );
         })}
+      </div>
+
+      {/* Diagnóstico Inicial Card */}
+      <div className="space-y-4 pt-2">
+        <div className="flex items-center gap-2 text-grayblue-800 font-extrabold text-base">
+          <Sparkles className="h-5 w-5 text-indigo-600" />
+          <h4>Periodo de Diagnóstico Inicial</h4>
+        </div>
+
+        <button
+          onClick={() => navigateTo('escolar-actividades', { campoId: 'diagnostico' })}
+          className="w-full flex flex-col md:flex-row justify-between items-start md:items-center text-left p-6 md:p-8 rounded-3xl border border-indigo-200 bg-gradient-to-r from-indigo-50/50 via-white to-indigo-50/30 hover:border-indigo-300 transition-all duration-300 group cursor-pointer hover:shadow-lg gap-6"
+        >
+          <div className="flex items-start gap-5">
+            <div className="p-4 rounded-2xl bg-indigo-100 text-indigo-600 group-hover:scale-105 transition-transform duration-300">
+              <Sparkles className="h-7 w-7" />
+            </div>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <h4 className="text-xl font-extrabold text-grayblue-900 group-hover:text-indigo-600 transition-colors">
+                  Diagnóstico Inicial
+                </h4>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 uppercase tracking-wider">
+                  Evaluación Diagnóstica
+                </span>
+              </div>
+              <p className="text-sm text-grayblue-500 font-medium max-w-2xl leading-relaxed">
+                Captura de actividades, tareas diagnósticas, participación y prueba diagnóstica al comienzo del ciclo escolar.
+              </p>
+            </div>
+          </div>
+
+          <div className="shrink-0 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-4 py-2.5 rounded-2xl">
+            {getFormatStats('diagnostico')}
+          </div>
+        </button>
       </div>
 
     </div>

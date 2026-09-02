@@ -32,51 +32,54 @@ export const Concentrado: React.FC = () => {
     const cfg = porcentajes[campoId];
     if (!val || !cfg) return 0;
 
-    const actAvg = val.actividades.length > 0 
+    const actAvg = val.actividades && val.actividades.length > 0 
       ? val.actividades.reduce((a, b) => a + b, 0) / val.actividades.length 
       : 0;
 
-    const tarAvg = val.tareas.length > 0 
+    const tarAvg = val.tareas && val.tareas.length > 0 
       ? val.tareas.reduce((a, b) => a + b, 0) / val.tareas.length 
       : 0;
 
-    let finalGrade = 0;
-    const isExamenActive = camposFormativos.find(c => c.id === campoId)?.tieneExamen;
+    const partAvg = val.participacion && val.participacion.length > 0
+      ? val.participacion.reduce((a, b) => a + b, 0) / val.participacion.length
+      : (val.actividades && val.actividades.length > 0 ? actAvg : 9);
 
-    if (isExamenActive && cfg.examen > 0) {
-      const examVal = val.examen !== null ? val.examen : 0;
-      finalGrade = (actAvg * (cfg.actividades / 100)) + 
-                   (tarAvg * (cfg.tareas / 100)) + 
-                   (examVal * (cfg.examen / 100));
-    } else {
-      const totalPct = cfg.actividades + cfg.tareas;
-      const normAct = totalPct > 0 ? (cfg.actividades / totalPct) * 100 : 50;
-      const normTar = totalPct > 0 ? (cfg.tareas / totalPct) * 100 : 50;
-      finalGrade = (actAvg * (normAct / 100)) + (tarAvg * (normTar / 100));
-    }
+    const examVal = val.examen !== null && val.examen !== undefined ? val.examen : 0;
+
+    const actWeight = cfg.actividades || 0;
+    const tarWeight = cfg.tareas || 0;
+    const exWeight = cfg.examen || 0;
+    const partWeight = cfg.participacion || 0;
+
+    const finalGrade = (actAvg * (actWeight / 100)) + 
+                       (tarAvg * (tarWeight / 100)) + 
+                       (examVal * (exWeight / 100)) + 
+                       (partAvg * (partWeight / 100));
 
     return parseFloat(finalGrade.toFixed(1));
   };
 
   const handleExportCSV = () => {
-    const headers = ['Campo Formativo', 'Promedio Actividades', 'Promedio Tareas', 'Examen', 'Calificación Trimestre'];
+    const headers = ['Campo Formativo', 'Promedio Actividades', 'Promedio Tareas', 'Promedio Participación', 'Examen', 'Calificación Trimestre'];
     const rows = camposFormativos.map(campo => {
-      const cal = student.calificaciones[campo.id] || { actividades: [], tareas: [], examen: null };
-      const actAvg = cal.actividades.length > 0 ? (cal.actividades.reduce((a, b) => a + b, 0) / cal.actividades.length).toFixed(1) : '0';
-      const tarAvg = cal.tareas.length > 0 ? (cal.tareas.reduce((a, b) => a + b, 0) / cal.tareas.length).toFixed(1) : '0';
+      const cal = student.calificaciones[campo.id] || { actividades: [], tareas: [], examen: null, participacion: [] };
+      const actAvg = cal.actividades && cal.actividades.length > 0 ? (cal.actividades.reduce((a, b) => a + b, 0) / cal.actividades.length).toFixed(1) : '0';
+      const tarAvg = cal.tareas && cal.tareas.length > 0 ? (cal.tareas.reduce((a, b) => a + b, 0) / cal.tareas.length).toFixed(1) : '0';
+      const partAvg = cal.participacion && cal.participacion.length > 0 ? (cal.participacion.reduce((a, b) => a + b, 0) / cal.participacion.length).toFixed(1) : actAvg;
       const grade = calculateFieldGrade(campo.id);
       return [
         campo.nombre,
         actAvg,
         tarAvg,
+        partAvg,
         campo.tieneExamen ? (cal.examen !== null ? cal.examen : 'N/A') : 'Sin Examen',
         grade
       ];
     });
 
     // Add summary row
-    rows.push(['PROMEDIO GENERAL', '', '', '', student.promedio]);
-    rows.push(['ASISTENCIA (%)', '', '', '', `${Math.round((student.asistenciasCount / (student.asistenciasCount + student.faltasCount)) * 100)}%`]);
+    rows.push(['PROMEDIO GENERAL', '', '', '', '', student.promedio]);
+    rows.push(['ASISTENCIA (%)', '', '', '', '', `${Math.round((student.asistenciasCount / (student.asistenciasCount + student.faltasCount)) * 100)}%`]);
 
     const sanitizedName = student.nombre.replace(/\s+/g, '_');
     downloadCSV(`Boleta_${sanitizedName}_${trimestre}_Trimestre`, headers, rows);
@@ -181,13 +184,16 @@ export const Concentrado: React.FC = () => {
           <div className="space-y-3">
             {camposFormativos.map((campo) => {
               const grade = calculateFieldGrade(campo.id);
-              const cal = student.calificaciones[campo.id] || { actividades: [], tareas: [], examen: null };
-              const actAvg = cal.actividades.length > 0 
+              const cal = student.calificaciones[campo.id] || { actividades: [], tareas: [], examen: null, participacion: [] };
+              const actAvg = cal.actividades && cal.actividades.length > 0 
                 ? (cal.actividades.reduce((a, b) => a + b, 0) / cal.actividades.length).toFixed(1)
                 : '0';
-              const tarAvg = cal.tareas.length > 0
+              const tarAvg = cal.tareas && cal.tareas.length > 0
                 ? (cal.tareas.reduce((a, b) => a + b, 0) / cal.tareas.length).toFixed(1)
                 : '0';
+              const partAvg = cal.participacion && cal.participacion.length > 0
+                ? (cal.participacion.reduce((a, b) => a + b, 0) / cal.participacion.length).toFixed(1)
+                : actAvg;
 
               return (
                 <div 
@@ -196,16 +202,14 @@ export const Concentrado: React.FC = () => {
                 >
                   <div className="space-y-1">
                     <span className="font-bold text-grayblue-900 text-base">{campo.nombre}</span>
-                    <div className="flex gap-3 text-xs text-grayblue-400 font-semibold">
-                      <span>Pro. Actividades: {actAvg}</span>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-grayblue-400 font-semibold">
+                      <span>Actividades: {actAvg}</span>
                       <span>•</span>
-                      <span>Pro. Tareas: {tarAvg}</span>
-                      {campo.tieneExamen && (
-                        <>
-                          <span>•</span>
-                          <span>Examen: {cal.examen !== null ? cal.examen : 'S/N'}</span>
-                        </>
-                      )}
+                      <span>Tareas: {tarAvg}</span>
+                      <span>•</span>
+                      <span>Participación: {partAvg}</span>
+                      <span>•</span>
+                      <span>Examen: {cal.examen !== null && cal.examen !== undefined ? cal.examen : 'S/N'}</span>
                     </div>
                   </div>
 
@@ -281,6 +285,7 @@ export const Concentrado: React.FC = () => {
                     <th className="p-2.5 text-left border-r border-grayblue-300">Campo Formativo</th>
                     <th className="p-2.5 text-center border-r border-grayblue-300">Actividades</th>
                     <th className="p-2.5 text-center border-r border-grayblue-300">Tareas</th>
+                    <th className="p-2.5 text-center border-r border-grayblue-300">Participación</th>
                     <th className="p-2.5 text-center border-r border-grayblue-300">Examen</th>
                     <th className="p-2.5 text-center font-black">Calificación</th>
                   </tr>
@@ -288,23 +293,25 @@ export const Concentrado: React.FC = () => {
                 <tbody className="divide-y divide-grayblue-200">
                   {camposFormativos.map(campo => {
                     const grade = calculateFieldGrade(campo.id);
-                    const cal = student.calificaciones[campo.id] || { actividades: [], tareas: [], examen: null };
-                    const actAvg = cal.actividades.length > 0 ? (cal.actividades.reduce((a, b) => a + b, 0) / cal.actividades.length).toFixed(1) : '0';
-                    const tarAvg = cal.tareas.length > 0 ? (cal.tareas.reduce((a, b) => a + b, 0) / cal.tareas.length).toFixed(1) : '0';
+                    const cal = student.calificaciones[campo.id] || { actividades: [], tareas: [], examen: null, participacion: [] };
+                    const actAvg = cal.actividades && cal.actividades.length > 0 ? (cal.actividades.reduce((a, b) => a + b, 0) / cal.actividades.length).toFixed(1) : '0';
+                    const tarAvg = cal.tareas && cal.tareas.length > 0 ? (cal.tareas.reduce((a, b) => a + b, 0) / cal.tareas.length).toFixed(1) : '0';
+                    const partAvg = cal.participacion && cal.participacion.length > 0 ? (cal.participacion.reduce((a, b) => a + b, 0) / cal.participacion.length).toFixed(1) : actAvg;
                     return (
                       <tr key={campo.id}>
                         <td className="p-2.5 font-bold border-r border-grayblue-300">{campo.nombre}</td>
                         <td className="p-2.5 text-center border-r border-grayblue-300">{actAvg}</td>
                         <td className="p-2.5 text-center border-r border-grayblue-300">{tarAvg}</td>
+                        <td className="p-2.5 text-center border-r border-grayblue-300">{partAvg}</td>
                         <td className="p-2.5 text-center border-r border-grayblue-300">
-                          {campo.tieneExamen ? (cal.examen !== null ? cal.examen : '—') : 'N/A'}
+                          {cal.examen !== null && cal.examen !== undefined ? cal.examen : '—'}
                         </td>
                         <td className="p-2.5 text-center font-black text-sm">{grade}</td>
                       </tr>
                     );
                   })}
                   <tr className="bg-cream-100 font-black border-t-2 border-grayblue-800 text-sm">
-                    <td colSpan={4} className="p-2.5 text-right border-r border-grayblue-300 uppercase">
+                    <td colSpan={5} className="p-2.5 text-right border-r border-grayblue-300 uppercase">
                       Promedio Trimestral General:
                     </td>
                     <td className="p-2.5 text-center text-sage-600 text-base">{student.promedio}</td>

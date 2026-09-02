@@ -33,6 +33,7 @@ export interface Alumno {
       actividades: number[];
       tareas: number[];
       examen: number | null;
+      participacion?: number[];
     };
   };
 }
@@ -54,6 +55,7 @@ export interface PorcentajeConfig {
   actividades: number;
   tareas: number;
   examen: number;
+  participacion: number;
 }
 
 export interface Lote {
@@ -155,8 +157,8 @@ interface AppContextProps {
   addAlumno: (alumno: Omit<Alumno, 'id' | 'promedio' | 'asistenciasCount' | 'faltasCount' | 'retardosCount' | 'calificaciones'>) => void;
   deleteAlumno: (id: string) => void;
   saveAsistencia: (fecha: string, status: { [alumnoId: string]: AsistenciaStatus }) => void;
-  updateCalificacion: (campoId: string, alumnoId: string, tipo: 'actividades' | 'tareas' | 'examen', index: number, value: number) => void;
-  addColumnaCalificacion: (campoId: string, tipo: 'actividades' | 'tareas') => void;
+  updateCalificacion: (campoId: string, alumnoId: string, tipo: 'actividades' | 'tareas' | 'examen' | 'participacion', index: number, value: number) => void;
+  addColumnaCalificacion: (campoId: string, tipo: 'actividades' | 'tareas' | 'participacion') => void;
   savePorcentajes: (campoId: string, config: PorcentajeConfig) => void;
 
   // Business Data
@@ -175,293 +177,27 @@ interface AppContextProps {
 
 // --- DEFAULT INITIAL SEED DATA ---
 
-const DEFAULT_ALUMNOS: Alumno[] = [
-  {
-    id: 'a1',
-    nombre: 'Ana Martínez López',
-    curp: 'MALA160412HDFRRN09',
-    sexo: 'F',
-    fechaNacimiento: '2016-04-12',
-    grado: '5.º',
-    grupo: 'A',
-    promedio: 8.8,
-    asistenciasCount: 54,
-    faltasCount: 2,
-    retardosCount: 1,
-    calificaciones: {
-      'lenguajes': { actividades: [9, 10, 8], tareas: [9, 10, 9, 9], examen: 8 },
-      'saberes': { actividades: [8, 9, 8], tareas: [9, 8, 9, 10], examen: 9 },
-      'etica': { actividades: [10, 9, 10], tareas: [9, 10, 10, 9], examen: null },
-      'humano': { actividades: [9, 9, 10], tareas: [10, 9, 9, 9], examen: null },
-    }
-  },
-  {
-    id: 'a2',
-    nombre: 'Carlos Hernández Ruiz',
-    curp: 'HERC160822HDFRRZ01',
-    sexo: 'M',
-    fechaNacimiento: '2016-08-22',
-    grado: '5.º',
-    grupo: 'A',
-    promedio: 8.3,
-    asistenciasCount: 52,
-    faltasCount: 4,
-    retardosCount: 1,
-    calificaciones: {
-      'lenguajes': { actividades: [7, 8, 9], tareas: [8, 9, 8, 9], examen: 9 },
-      'saberes': { actividades: [8, 7, 9], tareas: [8, 8, 9, 8], examen: 8 },
-      'etica': { actividades: [8, 8, 9], tareas: [9, 8, 8, 9], examen: null },
-      'humano': { actividades: [9, 8, 8], tareas: [8, 9, 9, 9], examen: null },
-    }
-  },
-  {
-    id: 'a3',
-    nombre: 'Mariana García Pérez',
-    curp: 'GAPM160105MDFRRN05',
-    sexo: 'F',
-    fechaNacimiento: '2016-01-05',
-    grado: '5.º',
-    grupo: 'A',
-    promedio: 9.4,
-    asistenciasCount: 56,
-    faltasCount: 0,
-    retardosCount: 1,
-    calificaciones: {
-      'lenguajes': { actividades: [10, 9, 10], tareas: [10, 10, 9, 10], examen: 10 },
-      'saberes': { actividades: [9, 10, 9], tareas: [10, 9, 10, 9], examen: 9 },
-      'etica': { actividades: [10, 10, 9], tareas: [10, 10, 10, 10], examen: null },
-      'humano': { actividades: [9, 10, 10], tareas: [10, 10, 9, 10], examen: null },
-    }
-  },
-  {
-    id: 'a4',
-    nombre: 'Diego Castro Molina',
-    curp: 'CAMD161130HDFSLN02',
-    sexo: 'M',
-    fechaNacimiento: '2016-11-30',
-    grado: '5.º',
-    grupo: 'A',
-    promedio: 7.9,
-    asistenciasCount: 50,
-    faltasCount: 6,
-    retardosCount: 1,
-    calificaciones: {
-      'lenguajes': { actividades: [8, 7, 7], tareas: [8, 7, 8, 7], examen: 8 },
-      'saberes': { actividades: [7, 8, 7], tareas: [7, 8, 8, 7], examen: 8 },
-      'etica': { actividades: [8, 7, 8], tareas: [8, 8, 7, 8], examen: null },
-      'humano': { actividades: [8, 8, 8], tareas: [7, 8, 8, 8], examen: null },
-    }
-  },
-  {
-    id: 'a5',
-    nombre: 'Sofía Romero Díaz',
-    curp: 'RODS160714MDFMRN08',
-    sexo: 'F',
-    fechaNacimiento: '2016-07-14',
-    grado: '5.º',
-    grupo: 'A',
-    promedio: 9.1,
-    asistenciasCount: 55,
-    faltasCount: 1,
-    retardosCount: 1,
-    calificaciones: {
-      'lenguajes': { actividades: [9, 9, 9], tareas: [9, 10, 9, 9], examen: 9 },
-      'saberes': { actividades: [9, 9, 8], tareas: [9, 9, 10, 9], examen: 10 },
-      'etica': { actividades: [10, 9, 9], tareas: [9, 9, 9, 10], examen: null },
-      'humano': { actividades: [9, 9, 9], tareas: [9, 10, 9, 10], examen: null },
-    }
-  },
-  {
-    id: 'a6',
-    nombre: 'Luis Torres Medina',
-    curp: 'TOML160228HDFRRN01',
-    sexo: 'M',
-    fechaNacimiento: '2016-02-28',
-    grado: '5.º',
-    grupo: 'A',
-    promedio: 8.6,
-    asistenciasCount: 53,
-    faltasCount: 3,
-    retardosCount: 0,
-    calificaciones: {
-      'lenguajes': { actividades: [8, 8, 8], tareas: [9, 9, 8, 9], examen: 9 },
-      'saberes': { actividades: [9, 8, 8], tareas: [8, 9, 8, 9], examen: 8 },
-      'etica': { actividades: [9, 9, 9], tareas: [9, 9, 9, 8], examen: null },
-      'humano': { actividades: [9, 8, 9], tareas: [9, 9, 9, 9], examen: null },
-    }
-  },
-  {
-    id: 'a7',
-    nombre: 'Valeria Ortiz Cruz',
-    curp: 'OICV160515MDFRRN04',
-    sexo: 'F',
-    fechaNacimiento: '2016-05-15',
-    grado: '5.º',
-    grupo: 'A',
-    promedio: 9.3,
-    asistenciasCount: 56,
-    faltasCount: 0,
-    retardosCount: 0,
-    calificaciones: {
-      'lenguajes': { actividades: [10, 9, 10], tareas: [10, 9, 10, 10], examen: 9 },
-      'saberes': { actividades: [9, 10, 9], tareas: [10, 10, 9, 9], examen: 9 },
-      'etica': { actividades: [10, 10, 9], tareas: [9, 10, 10, 10], examen: null },
-      'humano': { actividades: [9, 10, 10], tareas: [10, 10, 10, 9], examen: null },
-    }
-  },
-  {
-    id: 'a8',
-    nombre: 'Javier Flores Silva',
-    curp: 'FISJ161011HDFRRS06',
-    sexo: 'M',
-    fechaNacimiento: '2016-10-11',
-    grado: '5.º',
-    grupo: 'A',
-    promedio: 8.0,
-    asistenciasCount: 51,
-    faltasCount: 4,
-    retardosCount: 2,
-    calificaciones: {
-      'lenguajes': { actividades: [8, 8, 7], tareas: [8, 8, 7, 8], examen: 8 },
-      'saberes': { actividades: [7, 7, 8], tareas: [7, 8, 8, 8], examen: 8 },
-      'etica': { actividades: [8, 8, 8], tareas: [8, 8, 8, 7], examen: null },
-      'humano': { actividades: [8, 8, 9], tareas: [8, 8, 8, 8], examen: null },
-    }
-  },
-  {
-    id: 'a9',
-    nombre: 'Camila Gómez Juárez',
-    curp: 'GOJC161205MDFRRN03',
-    sexo: 'F',
-    fechaNacimiento: '2016-12-05',
-    grado: '5.º',
-    grupo: 'A',
-    promedio: 8.9,
-    asistenciasCount: 54,
-    faltasCount: 2,
-    retardosCount: 0,
-    calificaciones: {
-      'lenguajes': { actividades: [9, 8, 9], tareas: [9, 9, 9, 9], examen: 9 },
-      'saberes': { actividades: [8, 9, 9], tareas: [9, 9, 8, 9], examen: 9 },
-      'etica': { actividades: [9, 9, 9], tareas: [9, 9, 9, 9], examen: null },
-      'humano': { actividades: [9, 9, 9], tareas: [9, 9, 9, 9], examen: null },
-    }
-  },
-  {
-    id: 'a10',
-    nombre: 'Mateo Ramírez Mendoza',
-    curp: 'RAMM160309HDFRRN02',
-    sexo: 'M',
-    fechaNacimiento: '2016-03-09',
-    grado: '5.º',
-    grupo: 'A',
-    promedio: 8.5,
-    asistenciasCount: 53,
-    faltasCount: 2,
-    retardosCount: 2,
-    calificaciones: {
-      'lenguajes': { actividades: [8, 8, 8], tareas: [8, 9, 8, 9], examen: 8 },
-      'saberes': { actividades: [8, 8, 9], tareas: [9, 8, 9, 9], examen: 9 },
-      'etica': { actividades: [8, 9, 8], tareas: [9, 8, 9, 8], examen: null },
-      'humano': { actividades: [9, 8, 8], tareas: [9, 8, 8, 9], examen: null },
-    }
-  },
-  {
-    id: 'a11',
-    nombre: 'Valentina Sánchez Vega',
-    curp: 'SAVV160918MDFRRN07',
-    sexo: 'F',
-    fechaNacimiento: '2016-09-18',
-    grado: '5.º',
-    grupo: 'A',
-    promedio: 9.6,
-    asistenciasCount: 57,
-    faltasCount: 0,
-    retardosCount: 0,
-    calificaciones: {
-      'lenguajes': { actividades: [10, 10, 9], tareas: [10, 10, 10, 10], examen: 10 },
-      'saberes': { actividades: [10, 9, 10], tareas: [10, 10, 9, 10], examen: 10 },
-      'etica': { actividades: [10, 10, 10], tareas: [10, 10, 10, 10], examen: null },
-      'humano': { actividades: [10, 9, 10], tareas: [10, 10, 10, 10], examen: null },
-    }
-  },
-  {
-    id: 'a12',
-    nombre: 'Santiago Díaz Castro',
-    curp: 'DICS160601HDFRRN06',
-    sexo: 'M',
-    fechaNacimiento: '2016-06-01',
-    grado: '5.º',
-    grupo: 'A',
-    promedio: 8.2,
-    asistenciasCount: 52,
-    faltasCount: 3,
-    retardosCount: 2,
-    calificaciones: {
-      'lenguajes': { actividades: [8, 8, 7], tareas: [8, 7, 8, 8], examen: 8 },
-      'saberes': { actividades: [8, 7, 8], tareas: [8, 8, 7, 8], examen: 9 },
-      'etica': { actividades: [8, 8, 8], tareas: [8, 8, 8, 8], examen: null },
-      'humano': { actividades: [8, 8, 8], tareas: [8, 8, 8, 8], examen: null },
-    }
-  }
-];
+const DEFAULT_ALUMNOS: Alumno[] = [];
 
 const DEFAULT_CAMPOS: CampoFormativo[] = [
   { id: 'lenguajes', nombre: 'Lenguajes', tieneExamen: true },
   { id: 'saberes', nombre: 'Saberes y pensamiento científico', tieneExamen: true },
-  { id: 'etica', nombre: 'Ética, naturaleza y sociedades', tieneExamen: false },
-  { id: 'humano', nombre: 'De lo humano y lo comunitario', tieneExamen: false },
+  { id: 'etica', nombre: 'Ética, naturaleza y sociedades', tieneExamen: true },
+  { id: 'humano', nombre: 'De lo humano y lo comunitario', tieneExamen: true },
 ];
 
 const DEFAULT_PORCENTAJES: { [campoId: string]: PorcentajeConfig } = {
-  'lenguajes': { actividades: 40, tareas: 30, examen: 30 },
-  'saberes': { actividades: 40, tareas: 30, examen: 30 },
-  'etica': { actividades: 60, tareas: 40, examen: 0 },
-  'humano': { actividades: 60, tareas: 40, examen: 0 },
+  'lenguajes': { actividades: 35, tareas: 25, examen: 25, participacion: 15 },
+  'saberes': { actividades: 35, tareas: 25, examen: 25, participacion: 15 },
+  'etica': { actividades: 35, tareas: 25, examen: 25, participacion: 15 },
+  'humano': { actividades: 35, tareas: 25, examen: 25, participacion: 15 },
+  'diagnostico': { actividades: 35, tareas: 25, examen: 25, participacion: 15 },
 };
 
-const DEFAULT_ASISTENCIA: AsistenciaRegistro[] = [
-  {
-    fecha: '2026-08-25',
-    status: {
-      a1: 'presente', a2: 'falta', a3: 'presente', a4: 'presente',
-      a5: 'presente', a6: 'falta', a7: 'presente', a8: 'retardo',
-      a9: 'presente', a10: 'presente', a11: 'presente', a12: 'presente'
-    }
-  }
-];
-
-const DEFAULT_LOTES: Lote[] = [
-  { id: 'l1', nombre: 'Ross', fecha: '2026-08-01', inversion: 4607, ventas: 8180, ganancia: 3573, productosRestantes: 3, estado: 'Activo' },
-  { id: 'l2', nombre: 'GAP', fecha: '2026-08-05', inversion: 7790, ventas: 12680, ganancia: 4890, productosRestantes: 5, estado: 'Activo' },
-  { id: 'l3', nombre: 'Goodwill', fecha: '2026-08-10', inversion: 4260, ventas: 8050, ganancia: 3790, productosRestantes: 2, estado: 'Activo' },
-  { id: 'l4', nombre: 'Tommy / Guess / Hollister', fecha: '2026-08-12', inversion: 15943, ventas: 29945, ganancia: 14002, productosRestantes: 12, estado: 'Activo' }
-];
-
-const DEFAULT_PRODUCTOS: Producto[] = [
-  { id: 'p1', descripcion: 'Terno negro formal slim fit', categoria: 'Trajes', talla: 'M', costo: 255, precio: 550, cantidad: 2, loteId: 'l1', notas: 'Prenda clásica de alta demanda', estado: 'Disponible', foto: null },
-  { id: 'p2', descripcion: 'Blusa GAP azul con logo', categoria: 'Blusas', talla: 'S', costo: 150, precio: 320, cantidad: 5, loteId: 'l2', notas: 'Algodón suave original', estado: 'Disponible', foto: null },
-  { id: 'p3', descripcion: 'Jeans Ross azul clásico', categoria: 'Pantalones', talla: '30', costo: 180, precio: 400, cantidad: 4, loteId: 'l1', notas: 'Denim grueso', estado: 'Vendido', foto: null },
-  { id: 'p4', descripcion: 'Camisa Tommy Hilfiger blanca', categoria: 'Camisas', talla: 'L', costo: 320, precio: 750, cantidad: 3, loteId: 'l4', notas: 'Custom fit', estado: 'Disponible', foto: null },
-  { id: 'p5', descripcion: 'Vestido Hollister floreado', categoria: 'Vestidos', talla: 'XS', costo: 280, precio: 620, cantidad: 4, loteId: 'l4', notas: 'Ideal para el verano', estado: 'Disponible', foto: null },
-  { id: 'p6', descripcion: 'Sudadera GAP gris con capucha', categoria: 'Sudaderas', talla: 'L', costo: 220, precio: 500, cantidad: 3, loteId: 'l2', notas: 'Interior afelpado', estado: 'Vendido', foto: null },
-  { id: 'p7', descripcion: 'Playera Guess negra letras doradas', categoria: 'Playeras', talla: 'M', costo: 160, precio: 380, cantidad: 6, loteId: 'l4', notas: 'Edición limitada', estado: 'Apartado', foto: null },
-  { id: 'p8', descripcion: 'Chaqueta Tommy mezclilla retro', categoria: 'Chaquetas', talla: 'XL', costo: 450, precio: 1100, cantidad: 2, loteId: 'l4', notas: 'Unisex estilo vintage', estado: 'Disponible', foto: null },
-  { id: 'p9', descripcion: 'Aromatizante ambiental textil', categoria: 'Aromatizantes', talla: 'Única', costo: 45, precio: 120, cantidad: 10, loteId: 'l3', notas: 'Olor a ropa limpia duradero', estado: 'Disponible', foto: null },
-  { id: 'p10', descripcion: 'Suéter Goodwill de lana tejido', categoria: 'Suéteres', talla: 'M', costo: 110, precio: 290, cantidad: 3, loteId: 'l3', notas: 'Excelente estado 10/10', estado: 'Disponible', foto: null },
-  { id: 'p11', descripcion: 'Short de lino Ross beige', categoria: 'Shorts', talla: 'S', costo: 90, precio: 220, cantidad: 5, loteId: 'l1', notas: 'Ropa de playa fresca', estado: 'Vendido', foto: null },
-  { id: 'p12', descripcion: 'Vestido Guess rojo de noche', categoria: 'Vestidos', talla: 'S', costo: 380, precio: 950, cantidad: 1, loteId: 'l4', notas: 'Hermosa tela satinada', estado: 'Disponible', foto: null },
-  { id: 'p13', descripcion: 'Pantalón GAP cargo verde militar', categoria: 'Pantalones', talla: '32', costo: 200, precio: 450, cantidad: 3, loteId: 'l2', notas: 'Bolsillos laterales cómodos', estado: 'Disponible', foto: null },
-  { id: 'p14', descripcion: 'Gorra Tommy Hilfiger clásica azul', categoria: 'Accesorios', talla: 'Ajustable', costo: 130, precio: 350, cantidad: 4, loteId: 'l4', notas: 'Logo frontal bordado', estado: 'Apartado', foto: null },
-  { id: 'p15', descripcion: 'Aromatizante spray vainilla premium', categoria: 'Aromatizantes', talla: 'Única', costo: 45, precio: 120, cantidad: 10, loteId: 'l3', notas: 'Aroma dulce y concentrado', estado: 'Vendido', foto: null }
-];
-
-const DEFAULT_VENTAS: Venta[] = [
-  { id: 'v1', productoId: 'p3', precioFinal: 400, cliente: 'Lorena Gómez', formaPago: 'Transferencia', fecha: '2026-08-15' },
-  { id: 'v2', productoId: 'p6', precioFinal: 500, cliente: 'Patricia Flores', formaPago: 'Efectivo', fecha: '2026-08-18' },
-  { id: 'v3', productoId: 'p11', precioFinal: 220, cliente: 'Beatriz Ruiz', formaPago: 'Tarjeta', fecha: '2026-08-20' },
-  { id: 'v4', productoId: 'p15', precioFinal: 120, cliente: 'Lorena Gómez', formaPago: 'Efectivo', fecha: '2026-08-22' }
-];
+const DEFAULT_ASISTENCIA: AsistenciaRegistro[] = [];
+const DEFAULT_LOTES: Lote[] = [];
+const DEFAULT_PRODUCTOS: Producto[] = [];
+const DEFAULT_VENTAS: Venta[] = [];
 
 function getStoredValue<T>(key: string, defaultValue: T): T {
   try {
@@ -473,6 +209,16 @@ function getStoredValue<T>(key: string, defaultValue: T): T {
     console.warn(`Error al leer "${key}" de localStorage:`, error);
   }
   return defaultValue;
+}
+
+// One-time purge of demo data from local storage
+if (typeof window !== 'undefined' && localStorage.getItem('jenny_demo_purged_v2') !== 'true') {
+  localStorage.removeItem('jenny_alumnos');
+  localStorage.removeItem('jenny_asistencia');
+  localStorage.removeItem('jenny_lotes');
+  localStorage.removeItem('jenny_productos');
+  localStorage.removeItem('jenny_ventas');
+  localStorage.setItem('jenny_demo_purged_v2', 'true');
 }
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -583,9 +329,31 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     getStoredValue<Alumno[]>('jenny_alumnos', DEFAULT_ALUMNOS)
   );
   const [camposFormativos] = useState<CampoFormativo[]>(DEFAULT_CAMPOS);
-  const [porcentajes, setPorcentajes] = useState<{ [campoId: string]: PorcentajeConfig }>(() => 
-    getStoredValue('jenny_porcentajes', DEFAULT_PORCENTAJES)
-  );
+  const [porcentajes, setPorcentajes] = useState<{ [campoId: string]: PorcentajeConfig }>(() => {
+    const raw = getStoredValue<Record<string, any>>('jenny_porcentajes', DEFAULT_PORCENTAJES);
+    const result: { [campoId: string]: PorcentajeConfig } = {};
+    const keys = ['lenguajes', 'saberes', 'etica', 'humano', 'diagnostico'];
+
+    keys.forEach(k => {
+      const defaultConf = DEFAULT_PORCENTAJES[k] || { actividades: 35, tareas: 25, examen: 25, participacion: 15 };
+      const item = raw?.[k];
+      if (!item) {
+        result[k] = { ...defaultConf };
+      } else {
+        const act = item.actividades ?? defaultConf.actividades;
+        const tar = item.tareas ?? defaultConf.tareas;
+        const ex = item.examen ?? defaultConf.examen;
+        const part = item.participacion;
+
+        if (part === undefined || (act + tar + ex + part !== 100)) {
+          result[k] = { ...defaultConf };
+        } else {
+          result[k] = { actividades: act, tareas: tar, examen: ex, participacion: part };
+        }
+      }
+    });
+    return result;
+  });
   const [asistencia, setAsistencia] = useState<AsistenciaRegistro[]>(() => 
     getStoredValue<AsistenciaRegistro[]>('jenny_asistencia', DEFAULT_ASISTENCIA)
   );
@@ -622,35 +390,24 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
 
         // If Supabase has data, hydrate state with it
-        if (cloudAlumnos && cloudAlumnos.length > 0) {
+        if (cloudAlumnos !== null) {
           setAlumnos(cloudAlumnos);
-        } else if (cloudAlumnos && cloudAlumnos.length === 0) {
-          // Table exists but is empty -> Seed initial alumnos to cloud
-          DEFAULT_ALUMNOS.forEach(a => upsertAlumnoToSupabase(a));
         }
 
-        if (cloudAsistencias && cloudAsistencias.length > 0) {
+        if (cloudAsistencias !== null) {
           setAsistencia(cloudAsistencias);
-        } else if (cloudAsistencias && cloudAsistencias.length === 0) {
-          DEFAULT_ASISTENCIA.forEach(as => saveAsistenciaToSupabase(as.fecha, as.status));
         }
 
-        if (cloudLotes && cloudLotes.length > 0) {
+        if (cloudLotes !== null) {
           setLotes(cloudLotes);
-        } else if (cloudLotes && cloudLotes.length === 0) {
-          DEFAULT_LOTES.forEach(l => upsertLoteToSupabase(l));
         }
 
-        if (cloudProductos && cloudProductos.length > 0) {
+        if (cloudProductos !== null) {
           setProductos(cloudProductos);
-        } else if (cloudProductos && cloudProductos.length === 0) {
-          DEFAULT_PRODUCTOS.forEach(p => upsertProductoToSupabase(p));
         }
 
-        if (cloudVentas && cloudVentas.length > 0) {
+        if (cloudVentas !== null) {
           setVentas(cloudVentas);
-        } else if (cloudVentas && cloudVentas.length === 0) {
-          DEFAULT_VENTAS.forEach(v => insertVentaToSupabase(v));
         }
 
       } catch (err) {
@@ -725,25 +482,33 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const cfg = configs[campoId];
       if (!cfg) return;
 
-      const actAvg = val.actividades.length > 0 
+      const actAvg = val.actividades && val.actividades.length > 0 
         ? val.actividades.reduce((a, b) => a + b, 0) / val.actividades.length 
         : 0;
 
-      const tarAvg = val.tareas.length > 0 
+      const tarAvg = val.tareas && val.tareas.length > 0 
         ? val.tareas.reduce((a, b) => a + b, 0) / val.tareas.length 
         : 0;
 
+      const partAvg = val.participacion && val.participacion.length > 0
+        ? val.participacion.reduce((a, b) => a + b, 0) / val.participacion.length
+        : (val.actividades && val.actividades.length > 0 ? actAvg : 9);
+
+      const examenGrade = val.examen !== null && val.examen !== undefined ? val.examen : 0;
+
+      const actWeight = cfg.actividades || 0;
+      const tarWeight = cfg.tareas || 0;
+      const exWeight = cfg.examen || 0;
+      const partWeight = cfg.participacion || 0;
+
+      const totalPct = actWeight + tarWeight + exWeight + partWeight;
+      
       let campoGrade = 0;
-      if (cfg.examen > 0) {
-        const examenGrade = val.examen !== null ? val.examen : 0;
-        campoGrade = (actAvg * (cfg.actividades / 100)) + 
-                     (tarAvg * (cfg.tareas / 100)) + 
-                     (examenGrade * (cfg.examen / 100));
-      } else {
-        const totalPct = cfg.actividades + cfg.tareas;
-        const normAct = totalPct > 0 ? (cfg.actividades / totalPct) * 100 : 50;
-        const normTar = totalPct > 0 ? (cfg.tareas / totalPct) * 100 : 50;
-        campoGrade = (actAvg * (normAct / 100)) + (tarAvg * (normTar / 100));
+      if (totalPct > 0) {
+        campoGrade = (actAvg * (actWeight / 100)) + 
+                     (tarAvg * (tarWeight / 100)) + 
+                     (examenGrade * (exWeight / 100)) +
+                     (partAvg * (partWeight / 100));
       }
 
       sumTrimestres += campoGrade;
@@ -802,23 +567,23 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const id = 'a' + (Date.now());
     
     const defaultCalificaciones = {
-      'lenguajes': { actividades: [8, 8], tareas: [8, 8], examen: 8 },
-      'saberes': { actividades: [8, 8], tareas: [8, 8], examen: 8 },
-      'etica': { actividades: [8, 8], tareas: [8, 8], examen: null },
-      'humano': { actividades: [8, 8], tareas: [8, 8], examen: null },
+      'lenguajes': { actividades: [], tareas: [], examen: null, participacion: [] },
+      'saberes': { actividades: [], tareas: [], examen: null, participacion: [] },
+      'etica': { actividades: [], tareas: [], examen: null, participacion: [] },
+      'humano': { actividades: [], tareas: [], examen: null, participacion: [] },
+      'diagnostico': { actividades: [], tareas: [], examen: null, participacion: [] },
     };
 
     const student: Alumno = {
       ...newAl,
       id,
-      promedio: 8.0,
-      asistenciasCount: 50,
+      promedio: 0,
+      asistenciasCount: 0,
       faltasCount: 0,
       retardosCount: 0,
       calificaciones: defaultCalificaciones
     };
 
-    student.promedio = calculateStudentAverage(student.calificaciones, porcentajes);
     setAlumnos((prev) => [...prev, student]);
     upsertAlumnoToSupabase(student);
   };
@@ -872,7 +637,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const updateCalificacion = (
     campoId: string, 
     alumnoId: string, 
-    tipo: 'actividades' | 'tareas' | 'examen', 
+    tipo: 'actividades' | 'tareas' | 'examen' | 'participacion', 
     index: number, 
     value: number
   ) => {
@@ -881,7 +646,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (al.id !== alumnoId) return al;
 
         const updatedCalificaciones = { ...al.calificaciones };
-        const campoCal = { ...(updatedCalificaciones[campoId] || { actividades: [], tareas: [], examen: null }) };
+        const campoCal = { ...(updatedCalificaciones[campoId] || { actividades: [], tareas: [], examen: null, participacion: [] }) };
 
         if (tipo === 'actividades') {
           const acts = [...campoCal.actividades];
@@ -891,6 +656,10 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const tars = [...campoCal.tareas];
           tars[index] = value;
           campoCal.tareas = tars;
+        } else if (tipo === 'participacion') {
+          const parts = [...(campoCal.participacion || [])];
+          parts[index] = value;
+          campoCal.participacion = parts;
         } else if (tipo === 'examen') {
           campoCal.examen = value;
         }
@@ -911,16 +680,18 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   // Add a new activity or task column
-  const addColumnaCalificacion = (campoId: string, tipo: 'actividades' | 'tareas') => {
+  const addColumnaCalificacion = (campoId: string, tipo: 'actividades' | 'tareas' | 'participacion') => {
     setAlumnos(prevAlumnos => 
       prevAlumnos.map(al => {
         const updatedCalificaciones = { ...al.calificaciones };
-        const campoCal = { ...(updatedCalificaciones[campoId] || { actividades: [], tareas: [], examen: null }) };
+        const campoCal = { ...(updatedCalificaciones[campoId] || { actividades: [], tareas: [], examen: null, participacion: [] }) };
 
         if (tipo === 'actividades') {
           campoCal.actividades = [...campoCal.actividades, 8];
-        } else {
+        } else if (tipo === 'tareas') {
           campoCal.tareas = [...campoCal.tareas, 8];
+        } else if (tipo === 'participacion') {
+          campoCal.participacion = [...(campoCal.participacion || []), 10];
         }
 
         updatedCalificaciones[campoId] = campoCal;

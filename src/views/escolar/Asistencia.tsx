@@ -204,73 +204,85 @@ export const Asistencia: React.FC = () => {
           {/* Touch-Friendly List */}
           <div className="bg-white rounded-2xl border border-cream-200 shadow-xs overflow-hidden">
             <div className="divide-y divide-cream-100">
-              {filteredAlumnos.map((al) => {
-                const currentVal = localStatus[al.id] || 'presente';
+              {filteredAlumnos.length === 0 ? (
+                <div className="p-12 text-center text-grayblue-400 font-semibold text-sm">
+                  No hay alumnos registrados en este grado o grupo para tomar asistencia.
+                </div>
+              ) : (
+                filteredAlumnos.map((al) => {
+                  const currentVal = localStatus[al.id] || 'presente';
 
-                return (
-                  <div 
-                    key={al.id} 
-                    className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 md:px-6 md:py-5 gap-4 hover:bg-cream-50/30 transition-colors"
-                  >
-                    {/* Student Name */}
-                    <div className="space-y-0.5">
-                      <h4 className="font-bold text-grayblue-900 text-base">{al.nombre}</h4>
-                      <span className="text-xs text-grayblue-400 font-semibold uppercase font-mono">
-                        CURP: {al.curp}
-                      </span>
+                  return (
+                    <div 
+                      key={al.id} 
+                      className="p-4 md:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-cream-50/20 transition-colors"
+                    >
+                      <div className="space-y-1">
+                        <span className="font-bold text-grayblue-900 text-base md:text-lg block">
+                          {al.nombre}
+                        </span>
+                        <div className="flex gap-4 text-xs font-semibold text-grayblue-400 font-mono">
+                          <span>CURP: {al.curp}</span>
+                        </div>
+                      </div>
+
+                      {/* Attendance Buttons Selection */}
+                      <div className="grid grid-cols-3 gap-2 w-full sm:w-auto">
+                        {/* Presente */}
+                        <button
+                          onClick={() => handleStatusChange(al.id, 'presente')}
+                          className={`flex items-center justify-center gap-1.5 py-3 px-4 md:px-5 rounded-xl font-bold text-sm transition-all border select-none cursor-pointer ${
+                            currentVal === 'presente' 
+                              ? 'bg-emerald-500 text-white border-emerald-500 shadow-xs' 
+                              : 'bg-cream-50 text-grayblue-400 border-cream-200 hover:bg-cream-100'
+                          }`}
+                        >
+                          <Check className="h-4 w-4 shrink-0" />
+                          <span>Presente</span>
+                        </button>
+
+                        {/* Retardo */}
+                        <button
+                          onClick={() => handleStatusChange(al.id, 'retardo')}
+                          className={`flex items-center justify-center gap-1.5 py-3 px-4 md:px-5 rounded-xl font-bold text-sm transition-all border select-none cursor-pointer ${
+                            currentVal === 'retardo'
+                              ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                              : 'bg-cream-50 text-grayblue-400 border-cream-200 hover:bg-cream-100'
+                          }`}
+                        >
+                          <Clock className="h-4 w-4 shrink-0" />
+                          <span>Retardo</span>
+                        </button>
+
+                        {/* Falta */}
+                        <button
+                          onClick={() => handleStatusChange(al.id, 'falta')}
+                          className={`flex items-center justify-center gap-1.5 py-3 px-4 md:px-5 rounded-xl font-bold text-sm transition-all border select-none cursor-pointer ${
+                            currentVal === 'falta'
+                              ? 'bg-rose-500 text-white border-rose-500 shadow-xs'
+                              : 'bg-cream-50 text-grayblue-400 border-cream-200 hover:bg-cream-100'
+                          }`}
+                        >
+                          <X className="h-4 w-4 shrink-0" />
+                          <span>Falta</span>
+                        </button>
+                      </div>
                     </div>
-
-                    {/* Touch Buttons */}
-                    <div className="grid grid-cols-3 gap-2 w-full sm:w-auto">
-                      {/* Presente */}
-                      <button
-                        onClick={() => handleStatusChange(al.id, 'presente')}
-                        className={`flex items-center justify-center gap-1.5 py-3 px-4 md:px-5 rounded-xl font-bold text-sm transition-all border select-none cursor-pointer ${
-                          currentVal === 'presente'
-                            ? 'bg-emerald-500 text-white border-emerald-500 shadow-xs'
-                            : 'bg-cream-50 text-grayblue-400 border-cream-200 hover:bg-cream-100'
-                        }`}
-                      >
-                        <Check className="h-4 w-4 shrink-0" />
-                        <span>Presente</span>
-                      </button>
-
-                      {/* Retardo */}
-                      <button
-                        onClick={() => handleStatusChange(al.id, 'retardo')}
-                        className={`flex items-center justify-center gap-1.5 py-3 px-4 md:px-5 rounded-xl font-bold text-sm transition-all border select-none cursor-pointer ${
-                          currentVal === 'retardo'
-                            ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
-                            : 'bg-cream-50 text-grayblue-400 border-cream-200 hover:bg-cream-100'
-                        }`}
-                      >
-                        <Clock className="h-4 w-4 shrink-0" />
-                        <span>Retardo</span>
-                      </button>
-
-                      {/* Falta */}
-                      <button
-                        onClick={() => handleStatusChange(al.id, 'falta')}
-                        className={`flex items-center justify-center gap-1.5 py-3 px-4 md:px-5 rounded-xl font-bold text-sm transition-all border select-none cursor-pointer ${
-                          currentVal === 'falta'
-                            ? 'bg-rose-500 text-white border-rose-500 shadow-xs'
-                            : 'bg-cream-50 text-grayblue-400 border-cream-200 hover:bg-cream-100'
-                        }`}
-                      >
-                        <X className="h-4 w-4 shrink-0" />
-                        <span>Falta</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
 
             {/* Bottom Save Trigger */}
             <div className="p-6 bg-cream-50/50 border-t border-cream-100 flex justify-end">
               <button
                 onClick={handleSave}
-                className="flex items-center justify-center gap-2 bg-sage-500 hover:bg-sage-600 text-white font-bold py-3.5 px-6 rounded-2xl shadow-md shadow-sage-200 transition-colors w-full sm:w-auto cursor-pointer"
+                disabled={filteredAlumnos.length === 0}
+                className={`flex items-center justify-center gap-2 font-bold py-3.5 px-6 rounded-2xl shadow-md transition-colors w-full sm:w-auto cursor-pointer ${
+                  filteredAlumnos.length === 0 
+                    ? 'bg-cream-200 text-grayblue-400 cursor-not-allowed'
+                    : 'bg-sage-500 hover:bg-sage-600 text-white shadow-sage-200'
+                }`}
               >
                 <Save className="h-5 w-5" />
                 <span>Guardar Asistencia</span>

@@ -67,7 +67,14 @@ export const Lotes: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-cream-100 text-sm">
-              {lotes.map((lote) => {
+              {lotes.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-grayblue-400 font-semibold text-sm">
+                    No hay lotes registrados aún. Haz clic en "Registrar compra" para agregar tu primer lote.
+                  </td>
+                </tr>
+              ) : (
+                lotes.map((lote) => {
                 const recovered = lote.ventas >= lote.inversion;
 
                 return (
@@ -114,7 +121,7 @@ export const Lotes: React.FC = () => {
                     </td>
                   </tr>
                 );
-              })}
+              }))}
             </tbody>
           </table>
         </div>
